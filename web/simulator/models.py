@@ -1,4 +1,5 @@
 from django.db import models
+from sklearn import model_selection
 
 class Simulation(models.Model):
     # Project Properties
@@ -20,6 +21,10 @@ class Simulation(models.Model):
     annual_inflation_rate = models.FloatField(null=True, blank=True)
     cycle_life = models.FloatField(null=True, blank=True)
     
-    # Cost of Energy to Charge
+    # Capex
+    cells_cost = models.IntegerField()
+    
+    # Opex
 
+    # Cost of Energy to Charge
     annual_insurance_cost = models.FloatField(null=True, blank=True) # Opex in percentage of total cost
