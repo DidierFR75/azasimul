@@ -6,6 +6,8 @@
 $ make
 ```
 
+Website on localhost:8000
+
 ## Documentation
 
 
