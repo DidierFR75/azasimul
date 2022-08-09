@@ -157,6 +157,32 @@
         </tree-map>
       </envVars>
     </hudson.slaves.EnvironmentVariablesNodeProperty>
+    <hudson.slaves.EnvironmentVariablesNodeProperty>
+      <envVars serialization="custom">
+        <unserializable-parents/>
+        <tree-map>
+          <default>
+            <comparator class="java.lang.String$CaseInsensitiveComparator" reference="../../../../../hudson.slaves.EnvironmentVariablesNodeProperty/envVars/tree-map/default/comparator"/>
+          </default>
+          <int>1</int>
+          <string>MAVEN_OPTS</string>
+          <string></string>
+        </tree-map>
+      </envVars>
+    </hudson.slaves.EnvironmentVariablesNodeProperty>
+    <hudson.slaves.EnvironmentVariablesNodeProperty>
+      <envVars serialization="custom">
+        <unserializable-parents/>
+        <tree-map>
+          <default>
+            <comparator class="java.lang.String$CaseInsensitiveComparator" reference="../../../../../hudson.slaves.EnvironmentVariablesNodeProperty/envVars/tree-map/default/comparator"/>
+          </default>
+          <int>1</int>
+          <string>MAVEN_OPTS</string>
+          <string></string>
+        </tree-map>
+      </envVars>
+    </hudson.slaves.EnvironmentVariablesNodeProperty>
   </nodeProperties>
   <globalNodeProperties/>
   <nodeRenameMigrationNeeded>false</nodeRenameMigrationNeeded>

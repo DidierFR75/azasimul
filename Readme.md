@@ -1,4 +1,4 @@
-# AtTests - Intranet
+# AzaSimul - Financial simulation
 
 ## Setup
 
@@ -11,7 +11,6 @@ Website on localhost:8000
 ## Documentation
 
 You can find the app on http://localhost:8000 and the Jenkins interface on http://localhost:8080 
-
 
 ### Dev shortcuts
 
