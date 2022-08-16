@@ -12,7 +12,9 @@ from django.db.models.query_utils import Q
 from django.utils.http import urlsafe_base64_encode
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
+from django.contrib.auth.decorators import login_required
 
+@login_required(login_url="simulator:login")
 def index(request):
     return render(request, 'dashboard/index.html', {})
 
@@ -77,5 +79,7 @@ def password_reset_request(request):
                         return HttpResponse('Invalid header found.')
                     messages.success(request, 'A message with reset password instructions has been sent to your inbox.')
                     return redirect ("simulator:index")
+            messages.error(request, "An invalid email has been entered")
+        messages.error(request, "This user email doesn't exist")
     password_reset_form = PasswordResetForm()
     return render(request=request, template_name="users/password/password_reset.html", context={"password_reset_form": password_reset_form})

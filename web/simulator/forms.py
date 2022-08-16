@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from .models import Simulation
 
 class NewUserForm(UserCreationForm):
 	email = forms.EmailField(required=True)
@@ -15,3 +16,8 @@ class NewUserForm(UserCreationForm):
 		if commit:
 			user.save()
 		return user
+
+class SimulationForm(forms.ModelForm):
+	class Meta:
+		model = Simulation
+		fields = '__all__'
