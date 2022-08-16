@@ -1,0 +1,38 @@
+[
+{
+    "model": "auth.user",
+    "pk": 1,
+    "fields": {
+        "password": "pbkdf2_sha256$260000$qxjVcs0aOVoXXhoj9PBP1g$osnX84BtixkjFxn1TDJaGHZwPMDiYhMKsAmiqPV64LI=",
+        "last_login": "2022-08-16T17:49:49.027Z",
+        "is_superuser": false,
+        "username": "aza",
+        "first_name": "",
+        "last_name": "",
+        "email": "aza@azasimul.fr",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2022-08-16T17:49:48.841Z",
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "auth.user",
+    "pk": 2,
+    "fields": {
+        "password": "pbkdf2_sha256$260000$niLPSAETlWWGt0nfERzzsf$zOYxd6bSGwS504OtE/9xp5gVndqk1Ow4Ia+ckoBs1zg=",
+        "last_login": null,
+        "is_superuser": true,
+        "username": "admin",
+        "first_name": "",
+        "last_name": "",
+        "email": "admin@azasimul.fr",
+        "is_staff": true,
+        "is_active": true,
+        "date_joined": "2022-08-16T17:50:27.704Z",
+        "groups": [],
+        "user_permissions": []
+    }
+}
+]

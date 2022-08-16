@@ -24,3 +24,7 @@ bash:
 migration:
 	$(SERVER) python manage.py makemigrations
 	$(SERVER) python manage.py migrate
+
+install:
+	make migration
+	$(SERVER) python manage.py loaddata simulator/fixtures/*.json

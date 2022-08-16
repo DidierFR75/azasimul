@@ -14,21 +14,30 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
 from django.contrib.auth.decorators import login_required
 
+
 @login_required(login_url="simulator:login")
 def index(request):
     return render(request, 'dashboard/index.html', {})
 
+
 def register_request(request):
-	if request.method == "POST":
-		form = NewUserForm(request.POST)
-		if form.is_valid():
-			user = form.save()
-			login(request, user)
-			messages.success(request, "Registration successful." )
-			return redirect("simulator:index")
-		messages.error(request, "Unsuccessful registration. Invalid information.")
-	form = NewUserForm()
-	return render (request=request, template_name="users/register.html", context={"register_form": form})
+    if request.method == "POST":
+        form = NewUserForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, "Registration successful.")
+            return redirect("simulator:index")
+
+        message = ""
+        if form.errors:
+            for field in form:
+                for error in field.errors:
+                    message = message + error + ', '
+
+        messages.error(request, "Unsuccessful registration. " + message)
+    form = NewUserForm()
+    return render (request=request, template_name="users/register.html", context={"register_form": form})
 
 def login_request(request):
 	if request.method == "POST":

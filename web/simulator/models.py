@@ -14,9 +14,6 @@ class Enums:
         ('/', 'By')
     )
 
-class User(AbstractUser):
-    pass
-
 class Simulation(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField()
@@ -24,7 +21,7 @@ class Simulation(models.Model):
     description = models.TextField()
     start = models.DateTimeField()
     end = models.DateTimeField()
-    user = models.ForeignKey('User', on_delete=models.CASCADE)
+    #user = models.ForeignKey('User', on_delete=models.CASCADE)
 
     def __str__(self) -> str:
         return self.title

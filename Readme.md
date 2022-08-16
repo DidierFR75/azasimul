@@ -17,6 +17,7 @@ You can find the app on http://localhost:8000 and the Jenkins interface on http:
 Util commands for development:
 ```shell script
 $ make         # launch server
+$ make install # Create db and load fixtures
 $ make down    # Shutdown server
 $ make restart # Restart server
 $ make refresh # Reload container based files
@@ -27,5 +28,5 @@ $ make bash    # Run serveur terminal for debugging
 
 | Username | Email                 | Password      | Role  |
 | -------- | --------------------- |:-------------:| ----- |
-| admin    | admin@azasimul.fr     |  Password123  | Admin |
-| aza      | aza@azasimul.fr       |  Password123  | Admin |
+| admin    | admin@azasimul.fr     |  AzaPass999   | Admin |
+| aza      | aza@azasimul.fr       |  AzaPass999   | User  |

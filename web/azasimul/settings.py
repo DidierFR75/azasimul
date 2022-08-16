@@ -72,7 +72,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'azasimul.wsgi.application'
-AUTH_USER_MODEL = 'simulator.User'
+#AUTH_USER_MODEL = 'simulator.User'
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend' #  For development, see this for prod : https://ordinarycoders.com/blog/article/django-password-reset
 MESSAGE_TAGS = {
