@@ -25,6 +25,7 @@ $ make bash    # Run serveur terminal for debugging
 
 ### Demo credentials
 
-| Email                 | Password |
-| --------------------- |:--------:|
-| admin@azasimul.fr     |  123123  |
+| Username | Email                 | Password      | Role  |
+| -------- | --------------------- |:-------------:| ----- |
+| admin    | admin@azasimul.fr     |  Password123  | Admin |
+| aza      | aza@azasimul.fr       |  Password123  | Admin |
