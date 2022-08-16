@@ -1,8 +1,8 @@
 
 The following files have been resolved:
-   org.jenkins-ci.main:cli:jar:2.346.1:compile
-   org.jenkins-ci.main:remoting:jar:4.13.2:compile
-   org.jenkins-ci.main:jenkins-core:jar:2.346.1:compile
+   org.jenkins-ci.main:cli:jar:2.346.3:compile
+   org.jenkins-ci.main:remoting:jar:4.13.3:compile
+   org.jenkins-ci.main:jenkins-core:jar:2.346.3:compile
    antlr:antlr:jar:2.7.7:compile
    args4j:args4j:jar:2.33:compile
    com.github.spotbugs:spotbugs-annotations:jar:4.6.0:compile
@@ -84,12 +84,12 @@ The following files have been resolved:
    org.springframework.security:spring-security-web:jar:5.6.3:compile
    org.springframework.security:spring-security-core:jar:5.6.3:compile
    org.springframework.security:spring-security-crypto:jar:5.6.3:compile
-   org.springframework:spring-core:jar:5.3.19:compile
-   org.springframework:spring-aop:jar:5.3.19:compile
-   org.springframework:spring-beans:jar:5.3.19:compile
-   org.springframework:spring-context:jar:5.3.19:compile
-   org.springframework:spring-expression:jar:5.3.19:compile
-   org.springframework:spring-web:jar:5.3.19:compile
+   org.springframework:spring-core:jar:5.3.20:compile
+   org.springframework:spring-aop:jar:5.3.20:compile
+   org.springframework:spring-beans:jar:5.3.20:compile
+   org.springframework:spring-context:jar:5.3.20:compile
+   org.springframework:spring-expression:jar:5.3.20:compile
+   org.springframework:spring-web:jar:5.3.20:compile
    xpp3:xpp3:jar:1.1.4c:compile
    org.jenkins-ci.modules:instance-identity:jar:2.2:compile
    io.github.stephenc.crypto:self-signed-cert-generator:jar:1.0.0:compile

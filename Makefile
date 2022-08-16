@@ -3,6 +3,8 @@ SERVER=docker-compose exec web
 # Démarre le serveur
 run:
 	docker-compose up --build -d
+	$(SERVER) python manage.py makemigrations
+	$(SERVER) python manage.py migrate
 
 # Ferme le serveur
 down:
