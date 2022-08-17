@@ -22,8 +22,7 @@ class SimulationForm(forms.ModelForm):
 		model = Simulation
 		fields = '__all__'
 		exclude = ('created_at', "updated_at")
-		widget = {
-	        'start': forms.SelectDateWidget(
-				empty_label=("Choose Year", "Choose Month", "Choose Day"),
-			),
-		}
+		
+	def __init__(self, *args, **kwargs):
+		super(SimulationForm, self).__init__(*args, **kwargs)
+		self.fields['input_file'].required = False

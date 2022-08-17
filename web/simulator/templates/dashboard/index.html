@@ -1,13 +1,33 @@
 {% extends "base.html" %}
 
 {% block content %} 
-{% load crispy_forms_tags %}
 <div class="container py-5">
-  <h1>Dashboard</h1>
-  <form method="POST" enctype="multipart/form-data">
-    {% csrf_token %}
-    {{ simulation_form|crispy }}
-    <button class="btn btn-primary" type="submit">Make a simulation</button>
-  </form>
+    <h1>Simulation's List</h1>
+    {% if simulations %}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">Project Name</th>
+                        <th scope="col">Type</th>
+                        <th scope="col">Project Description</th>
+                        <th scope="col">Date Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for simulation in simulations %}
+                    <tr>
+                        <td><a href="/detail/{{simulation.id}}">{{ simulation.title|title }}</a></td>
+                        <td>{{ simulation.type }}</td>
+                        <td>{{ simulation.description|safe }}</td>
+                        <td>{{ simulation.created_at|date:'Y/M/d' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-center mt-3">There is no simulation created in the system. Do you want to <a href="/new">create one</a> ?</p>
+    {% endif %}
 </div>
 {% endblock %}

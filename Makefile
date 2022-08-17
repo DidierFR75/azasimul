@@ -32,7 +32,12 @@ graph:
 
 # Lance l'installation initiale du projet
 install:
+	# rm -rf data && rm -rf web/media && rm -rf web/static && rm -rf web/simulator/migrations
+	# mkdir web/simulator/migrations
+	# touch web/simulator/migrations/__init__.py
+	# chmod -R 777 data
 	make migration
 	make graph
-	$(SERVER) python3 manage.py loaddata simulator/fixtures/*.json
-	$(SERVER) python3 manage.py collectstatic
+	$(SERVER) python3 manage.py loaddata simulator/fixtures/users.json
+	$(SERVER) python3 manage.py collectstatic --noinput
+	make restart

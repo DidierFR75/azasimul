@@ -1,4 +1,5 @@
-from django.shortcuts import render, redirect
+from gc import get_objects
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
 from django.contrib import messages
 from django.contrib.auth.forms import AuthenticationForm
@@ -18,6 +19,11 @@ from .models import Simulation
 
 @login_required(login_url="simulator:login")
 def index(request):
+    simulations = Simulation.objects.all()
+    return render(request, "dashboard/index.html", {"simulations": simulations})
+
+@login_required(login_url="simulator:login")
+def new(request):
     if request.method == "POST":
         form = SimulationForm(request.POST, request.FILES)
         if form.is_valid():
@@ -33,8 +39,16 @@ def index(request):
         messages.error(request, "An error appear : " + message)
 
     form = SimulationForm()
-    simulations = Simulation.objects.all()
-    return render(request, 'dashboard/index.html', {"simulation_form": form, "simulations": simulations})
+    return render(request, 'dashboard/new.html', {"simulation_form": form})
+
+@login_required(login_url="simulator:login")
+def detail(request, id):
+    simulation = get_object_or_404(Simulation, id=id)
+    return render(request, "dashboard/detail.html", {
+        "simulation": simulation
+    })
+        
+    redirect("simulator:index")
 
 
 def register_request(request):

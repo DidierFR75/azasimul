@@ -16,14 +16,22 @@ class Enums:
         ('/', 'By')
     )
 
+    SIMULATION_TYPES = (
+        ("sas", "Stand Alone Storage"),
+        ("pvs", "PV + Storage"),
+        ("ws", "Wind + Storage"),
+        ("ma", "Mobility Applications")
+    )
+
 class Simulation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
     title = models.CharField(max_length=255)
     description = RichTextField()
+    type = models.CharField(max_length=100, choices=Enums.SIMULATION_TYPES, default=Enums.SIMULATION_TYPES[0][0])
     start = models.DateTimeField()
     end = models.DateTimeField()
-    input_file = models.FileField(upload_to="inputs/", null=True, validators=[validate_file_extension])
+    input_file = models.FileField(upload_to="inputs/", blank=True, null=True, validators=[validate_file_extension])
     #user = models.ForeignKey('User', on_delete=models.CASCADE)
 
     def __str__(self) -> str:
