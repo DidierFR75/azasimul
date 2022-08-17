@@ -47,9 +47,36 @@ def detail(request, id):
     return render(request, "dashboard/detail.html", {
         "simulation": simulation
     })
-        
-    redirect("simulator:index")
 
+@login_required(login_url="simulator:login")
+def edit(request, id):
+    simulation = get_object_or_404(Simulation, id=id)
+    if request.method == "POST":
+        form = SimulationForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "The simulation has been register !")
+            return redirect("simulator:index")
+        
+        message = ""
+        if form.errors:
+            for field in form:
+                for error in field.errors:
+                    message = message + error + ', '
+        messages.error(request, "An error appear : " + message)
+    
+    form = SimulationForm(instance=simulation)
+    return render(request, "dashboard/edit.html", {
+        "edit_form": form,
+        "simulation": simulation
+        })
+    
+@login_required(login_url="simulation:login")
+def delete(request, id):
+    simulation = get_object_or_404(Simulation, id=id)
+    simulation.delete()
+    messages.success(request, 'The simulation '+simulation.title+' has been deleted')
+    return redirect('simulator:index')
 
 def register_request(request):
     if request.method == "POST":
