@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser
+from .validators import validate_file_extension
 
 class Enums:
     UNIT = (
@@ -21,6 +22,7 @@ class Simulation(models.Model):
     description = models.TextField(null=True)
     start = models.DateTimeField()
     end = models.DateTimeField()
+    input_file = models.FileField(upload_to="inputs/", null=True, validators=[validate_file_extension])
     #user = models.ForeignKey('User', on_delete=models.CASCADE)
 
     def __str__(self) -> str:

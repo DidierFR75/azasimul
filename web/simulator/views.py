@@ -1,5 +1,4 @@
 from django.shortcuts import render, redirect
-from .forms import NewUserForm, SimulationForm
 from django.contrib.auth import login, authenticate, logout
 from django.contrib import messages
 from django.contrib.auth.forms import AuthenticationForm
@@ -14,11 +13,13 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
 from django.contrib.auth.decorators import login_required
 
+from .forms import NewUserForm, SimulationForm
+from .models import Simulation
 
 @login_required(login_url="simulator:login")
 def index(request):
     if request.method == "POST":
-        form = SimulationForm(request.POST)
+        form = SimulationForm(request.POST, request.FILES)
         if form.is_valid():
             form.save()
             messages.success(request, "The simulation has been register !")
@@ -32,7 +33,8 @@ def index(request):
         messages.error(request, "An error appear : " + message)
 
     form = SimulationForm()
-    return render(request, 'dashboard/index.html', {"simulation_form": form})
+    simulations = Simulation.objects.all()
+    return render(request, 'dashboard/index.html', {"simulation_form": form, "simulations": simulations})
 
 
 def register_request(request):
