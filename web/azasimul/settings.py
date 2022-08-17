@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.auth',
     "simulator",
     'crispy_forms',
+    "django_extensions"
 ]
 
 MIDDLEWARE = [

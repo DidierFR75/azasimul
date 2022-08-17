@@ -22,6 +22,8 @@ $ make down    # Shutdown server
 $ make restart # Restart server
 $ make refresh # Reload container based files
 $ make bash    # Run serveur terminal for debugging
+$ make migration # Execute model's migrations in Django
+$ make graph # Generate the entire graph of the system at web/aza_graph_project.png
 ```
 
 ### Demo credentials

@@ -21,10 +21,16 @@ refresh:
 bash:
 	$(SERVER) bash
 
+# Execute des migrations
 migration:
-	$(SERVER) python manage.py makemigrations
-	$(SERVER) python manage.py migrate
+	$(SERVER) python3 manage.py makemigrations
+	$(SERVER) python3 manage.py migrate
 
+# Lance l'installation initiale du projet
 install:
 	make migration
-	$(SERVER) python manage.py loaddata simulator/fixtures/*.json
+	$(SERVER) python3 manage.py loaddata simulator/fixtures/*.json
+
+# Génère un diagram des modèles du projet
+graph:
+	$(SERVER) python3 manage.py graph_models -a -g -o aza_graph_project.png

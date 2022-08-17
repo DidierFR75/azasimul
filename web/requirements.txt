@@ -3,3 +3,7 @@ psycopg2>=2.8
 numpy
 pandas
 django-crispy-forms
+django-extensions
+graphviz
+pydot
+pydotplus

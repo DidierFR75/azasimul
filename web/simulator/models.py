@@ -40,7 +40,6 @@ class BaseElement(models.Model):
 """
 class BaseElementValue(models.Model):
     base_element = models.ForeignKey(BaseElement, on_delete=models.CASCADE)
-    
 
 """
     List all specification which are possible in the system

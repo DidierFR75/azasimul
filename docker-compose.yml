@@ -11,9 +11,10 @@ services:
       - POSTGRES_DB=${DB_HOST}
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
+
   web:
     build: ./web
-    command: python manage.py runserver 0.0.0.0:8000
+    command: python3 manage.py runserver 0.0.0.0:8000
     container_name: web
     volumes:
       - ./web:/code
