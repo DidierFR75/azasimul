@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
-from .models import Simulation
+from .models import Simulation, BaseElement, BaseElementValue, PossibleSpecification, Specification, Composition
 
 class NewUserForm(UserCreationForm):
 	email = forms.EmailField(required=True)

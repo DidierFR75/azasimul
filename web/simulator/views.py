@@ -1,5 +1,7 @@
 from django.shortcuts import render, redirect
-from .forms import NewUserForm
+from .forms import NewUserForm, SimulationForm
+from .serializers import BaseElementSerializer, BaseElementValueSerializer, PossibleSpecificationSerializer, SpecificationSerializer, CompositionSerializer
+from .models import BaseElement, BaseElementValue, PossibleSpecification, Specification, Composition
 from django.contrib.auth import login, authenticate, logout
 from django.contrib import messages
 from django.contrib.auth.forms import AuthenticationForm
@@ -13,6 +15,46 @@ from django.utils.http import urlsafe_base64_encode
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
 from django.contrib.auth.decorators import login_required
+from rest_framework import viewsets
+from rest_framework import serializers
+
+def form_simulation(request):
+    if request.method == 'POST':
+        form = SimulationForm(request.POST)
+        if form.is_valid():
+            form.save()
+    elif request.method == 'GET':
+        form = SimulationForm()
+        return render(request, 'form/simulation.html', { 'form': form })
+
+def form_elements(request):
+    return render(request, 'form/elements.html')
+
+class BaseElementView(viewsets.ModelViewSet):
+    serializer_class = BaseElementSerializer
+    queryset = BaseElement.objects.all()
+
+class BaseElementValueView(viewsets.ModelViewSet):
+    serializer_class = BaseElementValueSerializer
+    queryset = BaseElementValue.objects.all()
+
+    def get_queryset(self):
+        base_element = self.request.query_params.get('base_element', None)
+        if base_element:
+            return BaseElementValue.objects.filter(base_element__pk = base_element)
+        return super().get_queryset()
+
+class PossibleSpecificationView(viewsets.ModelViewSet):
+    serializer_class = PossibleSpecificationSerializer
+    queryset = PossibleSpecification.objects.all()
+
+class SpecificationView(viewsets.ModelViewSet):
+    serializer_class = SpecificationSerializer
+    queryset = Specification.objects.all()
+
+class CompositionView(viewsets.ModelViewSet):
+    serializer_class = CompositionSerializer
+    queryset = Composition.objects.all()
 
 
 @login_required(login_url="simulator:login")

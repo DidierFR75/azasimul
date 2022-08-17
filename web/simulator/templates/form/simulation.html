@@ -1,0 +1,19 @@
+
+{% load static %}
+
+<link rel="stylesheet" type="text/css" href="{% static 'simulator/styles/main.css' %}"/>
+<link rel="stylesheet" type="text/css" href="{% static 'simulator/styles/forms.css' %}"/>
+
+<section class="form-wrp">
+    <form action="" method="post">
+        {% csrf_token %}
+        {% for field in form %}
+            <div class="field-wrp">
+                {{ field.label_tag }} {{ field }}
+            </div>
+        {% endfor %}
+        <section class="button-wrp">
+            <button type="submit" class="btn btn-primary">Submit</button>
+        </section>
+    </form>
+</section>

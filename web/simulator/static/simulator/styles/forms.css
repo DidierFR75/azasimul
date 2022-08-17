@@ -1,0 +1,43 @@
+.field-wrp{
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    position: relative
+}
+
+.field-wrp > input, .field-wrp > textarea, .field-wrp > select{
+    font-size: 16px;
+    font-weight: 400;
+    color: rgba(0,0,0,.9);
+    width: 100%;
+    padding: 13px 11px;
+    border-radius: 5px;
+    border: 1px solid rgba(0,0,0,.5);
+    background: transparent;
+    transition: padding .2s
+}
+
+.field-wrp > textarea{
+    resize: none
+}
+
+.field-wrp > label{
+    font-size: 14px;
+    font-weight: 400;
+    color: rgba(0,0,0,.6);
+    pointer-events: none;
+    position: absolute;
+    left: 11px;
+    top: 15px;
+    transition: font-size .2s, top .2s;
+}
+
+.field-wrp[data-focus="true"] > input{
+    padding: 21px 11px 5px 11px;
+
+}
+
+.field-wrp[data-focus="true"] > label{
+    font-size: 12px;
+    top: 5px;
+}
