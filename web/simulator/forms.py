@@ -25,5 +25,5 @@ class SimulationForm(forms.ModelForm):
 		widget = {
 	        'start': forms.SelectDateWidget(
 				empty_label=("Choose Year", "Choose Month", "Choose Day"),
-			) 
+			),
 		}

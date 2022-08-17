@@ -2,6 +2,7 @@ from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser
 from .validators import validate_file_extension
+from ckeditor.fields import RichTextField
 
 class Enums:
     UNIT = (
@@ -19,7 +20,7 @@ class Simulation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
     title = models.CharField(max_length=255)
-    description = models.TextField(null=True)
+    description = RichTextField()
     start = models.DateTimeField()
     end = models.DateTimeField()
     input_file = models.FileField(upload_to="inputs/", null=True, validators=[validate_file_extension])

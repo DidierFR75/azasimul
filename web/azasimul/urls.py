@@ -24,7 +24,7 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include("simulator.urls")),
-    #path('accounts/', include('django.contrib.auth.urls')),
+    url(r'^ckeditor/', include('ckeditor_uploader.urls')),
     path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(template_name="users/password/password_reset_confirm.html"), name='password_reset_confirm'),
     path('reset/done/', auth_views.PasswordResetCompleteView.as_view(template_name='users/password/password_reset_complete.html'), name='password_reset_complete'),    
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
