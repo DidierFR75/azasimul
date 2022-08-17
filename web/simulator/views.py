@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from .forms import NewUserForm
+from .forms import NewUserForm, SimulationForm
 from django.contrib.auth import login, authenticate, logout
 from django.contrib import messages
 from django.contrib.auth.forms import AuthenticationForm
@@ -17,7 +17,22 @@ from django.contrib.auth.decorators import login_required
 
 @login_required(login_url="simulator:login")
 def index(request):
-    return render(request, 'dashboard/index.html', {})
+    if request.method == "POST":
+        form = SimulationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "The simulation has been register !")
+            return redirect("simulator:index")
+        
+        message = ""
+        if form.errors:
+            for field in form:
+                for error in field.errors:
+                    message = message + error + ', '
+        messages.error(request, "An error appear : " + message)
+
+    form = SimulationForm()
+    return render(request, 'dashboard/index.html', {"simulation_form": form})
 
 
 def register_request(request):
@@ -57,6 +72,7 @@ def login_request(request):
 	form = AuthenticationForm()
 	return render(request=request, template_name="users/login.html", context={"login_form": form})
 
+@login_required(login_url="simulator:login")
 def logout_request(request):
 	logout(request)
 	messages.info(request, "You have successfully logged out.") 

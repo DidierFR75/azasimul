@@ -21,3 +21,9 @@ class SimulationForm(forms.ModelForm):
 	class Meta:
 		model = Simulation
 		fields = '__all__'
+		exclude = ('created_at', "updated_at")
+		widget = {
+	        'start': forms.SelectDateWidget(
+				empty_label=("Choose Year", "Choose Month", "Choose Day"),
+			) 
+		}

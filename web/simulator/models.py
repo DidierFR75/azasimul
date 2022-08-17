@@ -15,10 +15,10 @@ class Enums:
     )
 
 class Simulation(models.Model):
-    created_at = models.DateTimeField(default=timezone.now)
-    updated_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
     title = models.CharField(max_length=255)
-    description = models.TextField()
+    description = models.TextField(null=True)
     start = models.DateTimeField()
     end = models.DateTimeField()
     #user = models.ForeignKey('User', on_delete=models.CASCADE)
