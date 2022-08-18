@@ -8,3 +8,4 @@ graphviz
 pydot
 pydotplus
 django-ckeditor
+openpyxl

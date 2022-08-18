@@ -1,4 +1,3 @@
-from gc import get_objects
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
 from django.contrib import messages
@@ -13,6 +12,10 @@ from django.utils.http import urlsafe_base64_encode
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
 from django.contrib.auth.decorators import login_required
+
+from openpyxl import Workbook, load_workbook
+from openpyxl.writer.excel import save_virtual_workbook
+import os
 
 from .forms import NewUserForm, SimulationForm
 from .models import Simulation
@@ -78,6 +81,34 @@ def delete(request, id):
     messages.success(request, 'The simulation '+simulation.title+' has been deleted')
     return redirect('simulator:index')
 
+@login_required(login_url='simulation:login')
+def generateCSV(request, id):
+    simulation = get_object_or_404(Simulation, id=id)
+    
+    ws = load_workbook(os.getcwd()+ "/simulator/outputs/simplified.xlsx")
+
+    columns = {
+        "Project Type": simulation.type, 
+        "Project Name": simulation.title, 
+        "Project Description": simulation.description, 
+        "Model creation date": "", 
+        "Nameplate Load": "", 
+        "Battery Capacity Degredation per Annum": "",
+        "Hours of Sustained Output": "",
+        "Cycle Need Usage": "", 
+        "Cycles Required per Year": "", 
+        }
+    
+    i=3
+    for key, value in columns.items():
+        ws.cell(column="F", row=i, value=value)
+        i = i+1
+
+    response = HttpResponse(content=save_virtual_workbook(ws), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=myexport.xlsx'
+    return response
+
+# User pages
 def register_request(request):
     if request.method == "POST":
         form = NewUserForm(request.POST)

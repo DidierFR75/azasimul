@@ -29,6 +29,7 @@
                                 </a>
                             
                                 <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+                                    <a class="dropdown-item" href="{% url 'simulator:csv' simulation.id %}"><i class="fa fa-calculator"></i> Generate CSV</a>
                                     <a class="dropdown-item" href="{% url 'simulator:detail' simulation.id %}"><i class="fa-solid fa-eye"></i> Details</a>
                                     <a class="dropdown-item" href="{% url 'simulator:edit' simulation.id %}"><i class="fa-solid fa-pen-to-square"></i> Edit</a>
                                     <a class="dropdown-item" href="{% url 'simulator:delete' simulation.id %}"><i class="fa-solid fa-trash"></i> Delete</a>
