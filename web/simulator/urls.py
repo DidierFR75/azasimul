@@ -19,6 +19,5 @@ urlpatterns = [
     path("password_reset", views.password_reset_request, name="password_reset"),
     path("form/simulation", views.form_simulation, name="form_simulation"),
     path("form/elements", views.form_elements, name="form_elements"),
-    path("api/elements", views.api_elements, name="api_elements"),
     path("api/", include(router.urls))
 ]

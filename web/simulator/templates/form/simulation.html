@@ -4,12 +4,23 @@
 <link rel="stylesheet" type="text/css" href="{% static 'simulator/styles/main.css' %}"/>
 <link rel="stylesheet" type="text/css" href="{% static 'simulator/styles/forms.css' %}"/>
 
+<script src="{% static 'simulator/scripts/form.js' %}"></script>
+
 <section class="form-wrp">
+    <h2>Simulation</h2>
     <form action="" method="post">
         {% csrf_token %}
+        {{ form.non_field_errors }}
         {% for field in form %}
-            <div class="field-wrp">
+            {% if field.errors %}
+                <div class="field-wrp" data-error="true">
+            {% else %}
+                <div class="field-wrp">
+            {% endif %}
                 {{ field.label_tag }} {{ field }}
+                {% for error in field.errors %}
+                    <div class="error">{{ error }}</div>
+                {% endfor %}
             </div>
         {% endfor %}
         <section class="button-wrp">

@@ -17,9 +17,9 @@ class Form extends React.Component{
 
     render(){
         return(
-            <section>
+            <section className="form-wrp">
                 <div>
-                    <button onClick={() => addMatrix()}>
+                    <button className="button" onClick={() => addMatrix()}>
                         <i>+</i>
                         <span>Add Matrix</span>   
                     </button>

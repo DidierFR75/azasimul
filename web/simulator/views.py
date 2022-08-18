@@ -23,6 +23,8 @@ def form_simulation(request):
         form = SimulationForm(request.POST)
         if form.is_valid():
             form.save()
+        else:
+            return render(request, 'form/simulation.html', { 'form': form })
     elif request.method == 'GET':
         form = SimulationForm()
         return render(request, 'form/simulation.html', { 'form': form })
