@@ -5,7 +5,7 @@ textarea{
 
 .form-wrp{
     width: 90%;
-    max-width: 600px;
+    max-width: 400px;
     border: 1px solid var(--border-color);
     background-color: var(--background-layout);
     margin: 40px auto;
@@ -89,12 +89,14 @@ textarea{
 .button-wrp{
     display: flex;
     width: 100%;
-    justify-content: flex-end;
-    align-items: center;
-    padding-top: 20px;
+    align-items: center
 }
 
-.button-wrp > button, .button{
+.button-wrp[data-justify="end"]{
+    justify-content: flex-end
+}
+
+.button-wrp > button{
     font-size: 14px;
     font-weight: 600;
     color: #fff;
@@ -108,19 +110,21 @@ textarea{
     border: none
 }
 
-.button-wrp > button:hover, .button:hover{
+.button-wrp > button:hover{
     cursor: pointer;
     background: var(--primary-color-dark)
 }
 
-.button{
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    height: 40px
+/* FORM ELEMENTS */
+
+.form-elements-wrp{
+    max-width: 440px;
+    margin: 20px auto
 }
 
-.button > i{
-    padding-right: 20px
+.form-elements-wrp ul{
+    position: relative;
+    margin: 20px 0;
+    padding-left: 20px;
+    border-left: 1px solid rgba(0,0,0,.3)
 }
