@@ -4,7 +4,7 @@
 {% load crispy_forms_tags %}
 <div class="container py-5">
   <h1>Edit {{ composition.label|title }}</h1>
-  <form method="POST" enctype="multipart/form-data">
+  <form method="POST">
     {% csrf_token %}
     {{ edit_form|crispy }}
     <button class="btn btn-primary" type="submit">Edit the composition</button>

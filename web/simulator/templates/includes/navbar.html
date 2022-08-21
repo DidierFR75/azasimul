@@ -1,5 +1,5 @@
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
-    <a class="navbar-brand" href="#">Aza Simulation</a>
+    <a class="navbar-brand" href="{% url 'simulator:index' %}">Aza Simulation</a>
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarText" aria-controls="navbarText" aria-expanded="False" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
@@ -12,15 +12,22 @@
         <li class="nav-item dropdown">
           <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Simulations</a>
           <div class="dropdown-menu">
-              <a href="{% url 'simulator:index' %}" class="dropdown-item">List</a>
-              <a href="{% url 'simulator:new' %}" class="dropdown-item">Create</a>
+              <a href="{% url 'simulator:index' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> List</a>
+              <a href="{% url 'simulator:new' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Create</a>
           </div>
         </li>
         <li class="nav-item dropdown">
           <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Compositions</a>
           <div class="dropdown-menu">
-              <a href="{% url 'simulator:index_composite' %}" class="dropdown-item">List</a>
-              <a href="{% url 'simulator:new_composite' %}" class="dropdown-item">Create</a>
+              <a href="{% url 'simulator:index_composite' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> List</a>
+              <a href="{% url 'simulator:new_composite' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Create</a>
+          </div>
+        </li>
+        <li class="nav-item dropdown">
+          <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Elements</a>
+          <div class="dropdown-menu">
+              <a href="{% url 'simulator:index_base_element' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> List</a>
+              <a href="{% url 'simulator:new_base_element' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Create</a>
           </div>
         </li>
         <li class="nav-item">

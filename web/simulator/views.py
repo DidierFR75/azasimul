@@ -17,8 +17,8 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.writer.excel import save_virtual_workbook
 import os
 
-from .forms import CompositeForm, NewUserForm, SimulationForm
-from .models import Composite, Simulation
+from .forms import BaseElementForm, CompositeForm, NewUserForm, SimulationForm
+from .models import BaseElement, Composite, Simulation
 
 @login_required(login_url="simulator:login")
 def index(request):
@@ -109,7 +109,6 @@ def generateCSV(request, id):
     return response
 
 # Composite Pages
-
 @login_required(login_url="simulator:login")
 def index_composite(request):
     compositions = Composite.objects.all()
@@ -170,6 +169,69 @@ def delete_composite(request, id):
     composition.delete()
     messages.success(request, 'The simulation '+composition.label+' has been deleted')
     return redirect('simulator:index_composite')
+
+# Base Elements Pages
+@login_required(login_url="simulator:login")
+def index_base_element(request):
+    base_elements = BaseElement.objects.all()
+    return render(request, "base_element/index.html", {"base_elements": base_elements})
+
+@login_required(login_url="simulator:login")
+def new_base_element(request):
+    if request.method == "POST":
+        form = BaseElementForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "The element has been register !")
+            return redirect("simulator:index_base_element")
+        
+        message = ""
+        if form.errors:
+            for field in form:
+                for error in field.errors:
+                    message = message + error + ', '
+        messages.error(request, "An error appear : " + message)
+
+    form = BaseElementForm()
+    return render(request, 'base_element/new.html', {"base_element_form": form})
+
+@login_required(login_url="simulator:login")
+def detail_base_element(request, id):
+    base_element = get_object_or_404(BaseElement, id=id)
+    return render(request, "base_element/detail.html", {
+        "base_element": base_element
+    })
+
+@login_required(login_url="simulator:login")
+def edit_base_element(request, id):
+    base_element = get_object_or_404(BaseElement, id=id)
+    if request.method == "POST":
+        form = BaseElementForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "The element has been register !")
+            return redirect("simulator:index_base_element")
+        
+        message = ""
+        if form.errors:
+            for field in form:
+                for error in field.errors:
+                    message = message + error + ', '
+        messages.error(request, "An error appear : " + message)
+    
+    form = BaseElementForm(instance=base_element)
+    return render(request, "base_element/edit.html", {
+        "base_element_form": form,
+        "base_element": base_element
+        })
+    
+@login_required(login_url="simulation:login")
+def delete_base_element(request, id):
+    base_element = get_object_or_404(BaseElement, id=id)
+    base_element.delete()
+    messages.success(request, 'The simulation '+base_element.label+' has been deleted')
+    return redirect('simulator:index_base_element')
+
 
 # User Pages
 def register_request(request):
