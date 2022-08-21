@@ -4,7 +4,7 @@
 <div class="container py-5">
     <h1>Simulation's List</h1>
     {% if simulations %}
-        <div class="table-responsive">
+        <div class="table-responsive" style="min-height: 10em;">
             <table class="table">
                 <thead>
                     <tr>
@@ -18,7 +18,7 @@
                 <tbody>
                     {% for simulation in simulations %}
                     <tr>
-                        <td><a href="/detail/{{simulation.id}}">{{ simulation.title|title }}</a></td>
+                        <td><a href="{% url 'simulator:detail' simulation.id %}">{{ simulation.title|title }}</a></td>
                         <td>{{ simulation.type }}</td>
                         <td>{{ simulation.description|safe }}</td>
                         <td>{{ simulation.created_at|date:'Y/M/d' }}</td>
@@ -27,7 +27,6 @@
                                 <a class="btn btn-light dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 Actions
                                 </a>
-                            
                                 <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
                                     <a class="dropdown-item" href="{% url 'simulator:csv' simulation.id %}"><i class="fa fa-calculator"></i> Generate CSV</a>
                                     <a class="dropdown-item" href="{% url 'simulator:detail' simulation.id %}"><i class="fa-solid fa-eye"></i> Details</a>
@@ -42,7 +41,7 @@
             </table>
         </div>
     {% else %}
-        <p class="text-center mt-3">There is no simulation created in the system. Do you want to <a href="/new">create one</a> ?</p>
+        <p class="text-center mt-3">There is no simulation created in the system. Do you want to <a href="{% url 'simulator:new' %}">create one</a> ?</p>
     {% endif %}
 </div>
 {% endblock %}

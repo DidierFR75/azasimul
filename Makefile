@@ -41,3 +41,6 @@ install:
 	$(SERVER) python3 manage.py loaddata simulator/fixtures/users.json
 	$(SERVER) python3 manage.py collectstatic --noinput
 	make restart
+
+test:
+	$(SERVER) python3 manage.py test tests/

@@ -9,3 +9,4 @@ pydot
 pydotplus
 django-ckeditor
 openpyxl
+django-treebeard

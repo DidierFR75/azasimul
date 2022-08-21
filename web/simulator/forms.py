@@ -1,7 +1,8 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
-from .models import Simulation
+from .models import Composite, Simulation
+from treebeard.forms import MoveNodeForm
 
 class NewUserForm(UserCreationForm):
 	email = forms.EmailField(required=True)
@@ -26,3 +27,8 @@ class SimulationForm(forms.ModelForm):
 	def __init__(self, *args, **kwargs):
 		super(SimulationForm, self).__init__(*args, **kwargs)
 		self.fields['input_file'].required = False
+
+class CompositeForm(MoveNodeForm):
+    class Meta:
+        model = Composite
+        exclude = ('sib_order', 'parent', "path", "depth", "numchild")

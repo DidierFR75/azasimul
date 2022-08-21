@@ -17,8 +17,8 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.writer.excel import save_virtual_workbook
 import os
 
-from .forms import NewUserForm, SimulationForm
-from .models import Simulation
+from .forms import CompositeForm, NewUserForm, SimulationForm
+from .models import Composite, Simulation
 
 @login_required(login_url="simulator:login")
 def index(request):
@@ -108,7 +108,70 @@ def generateCSV(request, id):
     response['Content-Disposition'] = 'attachment; filename=myexport.xlsx'
     return response
 
-# User pages
+# Composite Pages
+
+@login_required(login_url="simulator:login")
+def index_composite(request):
+    compositions = Composite.objects.all()
+    return render(request, "composite/index.html", {"compositions": compositions})
+
+@login_required(login_url="simulator:login")
+def new_composite(request):
+    if request.method == "POST":
+        form = CompositeForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "The composition has been register !")
+            return redirect("simulator:index_composite")
+        
+        message = ""
+        if form.errors:
+            for field in form:
+                for error in field.errors:
+                    message = message + error + ', '
+        messages.error(request, "An error appear : " + message)
+
+    form = CompositeForm()
+    return render(request, 'composite/new.html', {"composite_form": form})
+
+@login_required(login_url="simulator:login")
+def detail_composite(request, id):
+    composition = get_object_or_404(Composite, id=id)
+    return render(request, "composite/detail.html", {
+        "composition": composition
+    })
+
+@login_required(login_url="simulator:login")
+def edit_composite(request, id):
+    composition = get_object_or_404(Composite, id=id)
+    if request.method == "POST":
+        form = CompositeForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "The composition has been register !")
+            return redirect("simulator:index_composite")
+        
+        message = ""
+        if form.errors:
+            for field in form:
+                for error in field.errors:
+                    message = message + error + ', '
+        messages.error(request, "An error appear : " + message)
+    
+    form = CompositeForm(instance=composition)
+    return render(request, "composite/edit.html", {
+        "edit_form": form,
+        "composition": composition
+        })
+    
+@login_required(login_url="simulation:login")
+def delete_composite(request, id):
+    composition = get_object_or_404(Composite, id=id)
+    composition.delete()
+    messages.success(request, 'The simulation '+composition.label+' has been deleted')
+    return redirect('simulator:index_composite')
+
+# User Pages
 def register_request(request):
     if request.method == "POST":
         form = NewUserForm(request.POST)

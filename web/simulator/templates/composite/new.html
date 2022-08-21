@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %} 
+{% load crispy_forms_tags %}
+<div class="container py-5">
+  <h1>Composite</h1>
+  <form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ composite_form|crispy }}
+    <button class="btn btn-primary" type="submit">Make a composition</button>
+  </form>
+</div>
+{% endblock %}

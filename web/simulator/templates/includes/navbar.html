@@ -4,16 +4,27 @@
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="navbarText">
-      <ul class="navbar-nav mr-auto">
+      <ul class="navbar-nav ml-auto">
         {% if user.is_authenticated %}
         <li class="nav-item">
             <a class="nav-link" href="/">Welcome, {{user.username}}</a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/new">Create simulation</a>
+        <li class="nav-item dropdown">
+          <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Simulations</a>
+          <div class="dropdown-menu">
+              <a href="{% url 'simulator:index' %}" class="dropdown-item">List</a>
+              <a href="{% url 'simulator:new' %}" class="dropdown-item">Create</a>
+          </div>
+        </li>
+        <li class="nav-item dropdown">
+          <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Compositions</a>
+          <div class="dropdown-menu">
+              <a href="{% url 'simulator:index_composite' %}" class="dropdown-item">List</a>
+              <a href="{% url 'simulator:new_composite' %}" class="dropdown-item">Create</a>
+          </div>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/logout">Logout</a>
+          <a class="nav-link" href="{% url 'simulator:logout' %}">Logout</a>
         </li>
         {% else %}
         <li class="nav-item">
