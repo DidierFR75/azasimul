@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
-from .models import BaseElement, Composite, Simulation
+from .models import BaseElement, BaseComposite, Element, OperationAvailable, Simulation
 from treebeard.forms import MoveNodeForm
 
 class NewUserForm(UserCreationForm):
@@ -28,13 +28,25 @@ class SimulationForm(forms.ModelForm):
 		super(SimulationForm, self).__init__(*args, **kwargs)
 		self.fields['input_file'].required = False
 
-class CompositeForm(MoveNodeForm):
+class BaseCompositeForm(MoveNodeForm):
     class Meta:
-        model = Composite
+        model = BaseComposite
         exclude = ('sib_order', 'parent', "path", "depth", "numchild")
+
+class ElementForm(forms.ModelForm):
+	class Meta:
+		model = Element
+		fields = '__all__'
 
 class BaseElementForm(forms.ModelForm):
 	class Meta:
 		model = BaseElement
 		fields = '__all__'
 		exclude = ('created_at', "updated_at")
+
+class OperationAvailableForm(forms.ModelForm):
+	class Meta:
+		model = OperationAvailable
+		fields = '__all__'
+		exclude = ('sib_order', 'parent', "path", "depth", "numchild")
+		

@@ -6,9 +6,6 @@
     <div class="collapse navbar-collapse" id="navbarText">
       <ul class="navbar-nav ml-auto">
         {% if user.is_authenticated %}
-        <li class="nav-item">
-            <a class="nav-link" href="/">Welcome, {{user.username}}</a>
-        </li>
         <li class="nav-item dropdown">
           <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Simulations</a>
           <div class="dropdown-menu">
@@ -17,17 +14,31 @@
           </div>
         </li>
         <li class="nav-item dropdown">
-          <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Compositions</a>
+          <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">BaseCompositions</a>
           <div class="dropdown-menu">
               <a href="{% url 'simulator:index_composite' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> List</a>
               <a href="{% url 'simulator:new_composite' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Create</a>
           </div>
         </li>
         <li class="nav-item dropdown">
-          <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Elements</a>
+          <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">BaseElements</a>
           <div class="dropdown-menu">
               <a href="{% url 'simulator:index_base_element' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> List</a>
               <a href="{% url 'simulator:new_base_element' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Create</a>
+          </div>
+        </li>
+        <li class="nav-item dropdown">
+          <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Elements</a>
+          <div class="dropdown-menu">
+              <a href="{% url 'simulator:index_element' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> List</a>
+              <a href="{% url 'simulator:new_element' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Create</a>
+          </div>
+        </li>
+        <li class="nav-item dropdown">
+          <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Operations</a>
+          <div class="dropdown-menu">
+              <a href="{% url 'simulator:index_operations_available' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> List</a>
+              <a href="{% url 'simulator:new_operation_available' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Create</a>
           </div>
         </li>
         <li class="nav-item">

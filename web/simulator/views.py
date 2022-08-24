@@ -17,8 +17,24 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.writer.excel import save_virtual_workbook
 import os
 
-from .forms import BaseElementForm, CompositeForm, NewUserForm, SimulationForm
-from .models import BaseElement, Composite, Simulation
+from .forms import BaseElementForm, BaseCompositeForm, ElementForm, NewUserForm, OperationAvailableForm, SimulationForm
+from .models import BaseElement, BaseComposite, Composite, Element, OperationAvailable, Simulation
+
+def _addElementFromStructure(simulation:Simulation):
+    """
+    Copy the empty BaseStructure in the simulation structure
+    """
+    root = simulation.root_composition
+    children = root.get_tree(parent=root)
+    for child in children:
+        composite = Composite(simulation=simulation, base_composition=child)
+        composite.save()
+        if child.base_elements is not None:
+            for base_element in child.base_elements.all():
+                element = Element.objects.filter(simulation=simulation, base_element=base_element, composition=composite)
+                if not element.exists():
+                    element = Element(simulation=simulation, base_element=base_element, composition=composite)
+                    element.save()
 
 @login_required(login_url="simulator:login")
 def index(request):
@@ -30,7 +46,8 @@ def new(request):
     if request.method == "POST":
         form = SimulationForm(request.POST, request.FILES)
         if form.is_valid():
-            form.save()
+            simulation = form.save()
+            _addElementFromStructure(simulation)
             messages.success(request, "The simulation has been register !")
             return redirect("simulator:index")
         
@@ -55,7 +72,7 @@ def detail(request, id):
 def edit(request, id):
     simulation = get_object_or_404(Simulation, id=id)
     if request.method == "POST":
-        form = SimulationForm(request.POST, request.FILES)
+        form = SimulationForm(request.POST, request.FILES, instance=simulation)
         if form.is_valid():
             form.save()
             messages.success(request, "The simulation has been register !")
@@ -108,16 +125,16 @@ def generateCSV(request, id):
     response['Content-Disposition'] = 'attachment; filename=myexport.xlsx'
     return response
 
-# Composite Pages
+# BaseComposite Pages
 @login_required(login_url="simulator:login")
 def index_composite(request):
-    compositions = Composite.objects.all()
-    return render(request, "composite/index.html", {"compositions": compositions})
+    compositions = BaseComposite.objects.all()
+    return render(request, "base_composite/index.html", {"compositions": compositions})
 
 @login_required(login_url="simulator:login")
 def new_composite(request):
     if request.method == "POST":
-        form = CompositeForm(request.POST)
+        form = BaseCompositeForm(request.POST)
         if form.is_valid():
             form.save()
             messages.success(request, "The composition has been register !")
@@ -130,21 +147,21 @@ def new_composite(request):
                     message = message + error + ', '
         messages.error(request, "An error appear : " + message)
 
-    form = CompositeForm()
-    return render(request, 'composite/new.html', {"composite_form": form})
+    form = BaseCompositeForm()
+    return render(request, 'base_composite/new.html', {"composite_form": form})
 
 @login_required(login_url="simulator:login")
 def detail_composite(request, id):
-    composition = get_object_or_404(Composite, id=id)
-    return render(request, "composite/detail.html", {
+    composition = get_object_or_404(BaseComposite, id=id)
+    return render(request, "base_composite/detail.html", {
         "composition": composition
     })
 
 @login_required(login_url="simulator:login")
 def edit_composite(request, id):
-    composition = get_object_or_404(Composite, id=id)
+    composition = get_object_or_404(BaseComposite, id=id)
     if request.method == "POST":
-        form = CompositeForm(request.POST)
+        form = BaseCompositeForm(request.POST, instance=composition)
         if form.is_valid():
             form.save()
             messages.success(request, "The composition has been register !")
@@ -157,20 +174,82 @@ def edit_composite(request, id):
                     message = message + error + ', '
         messages.error(request, "An error appear : " + message)
     
-    form = CompositeForm(instance=composition)
-    return render(request, "composite/edit.html", {
+    form = BaseCompositeForm(instance=composition)
+    return render(request, "base_composite/edit.html", {
         "edit_form": form,
         "composition": composition
         })
     
 @login_required(login_url="simulation:login")
 def delete_composite(request, id):
-    composition = get_object_or_404(Composite, id=id)
+    composition = get_object_or_404(BaseComposite, id=id)
     composition.delete()
     messages.success(request, 'The simulation '+composition.label+' has been deleted')
     return redirect('simulator:index_composite')
 
-# Base Elements Pages
+# Elements Pages
+@login_required(login_url="simulator:login")
+def index_element(request):
+    elements = Element.objects.all()
+    return render(request, "element/index.html", {"elements": elements})
+
+@login_required(login_url="simulator:login")
+def new_element(request):
+    if request.method == "POST":
+        form = ElementForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "The element has been register !")
+            return redirect("simulator:index_element")
+        
+        message = ""
+        if form.errors:
+            for field in form:
+                for error in field.errors:
+                    message = message + error + ', '
+        messages.error(request, "An error appear : " + message)
+
+    form = ElementForm()
+    return render(request, 'element/new.html', {"element_form": form})
+
+@login_required(login_url="simulator:login")
+def detail_element(request, id):
+    element = get_object_or_404(Element, id=id)
+    return render(request, "element/detail.html", {
+        "element": element
+    })
+
+@login_required(login_url="simulator:login")
+def edit_element(request, id):
+    element = get_object_or_404(Element, id=id)
+    if request.method == "POST":
+        form = ElementForm(request.POST, instance=element)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "The element has been register !")
+            return redirect("simulator:index_element")
+        
+        message = ""
+        if form.errors:
+            for field in form:
+                for error in field.errors:
+                    message = message + error + ', '
+        messages.error(request, "An error appear : " + message)
+    
+    form = ElementForm(instance=element)
+    return render(request, "element/edit.html", {
+        "element_form": form,
+        "element": element
+        })
+    
+@login_required(login_url="simulation:login")
+def delete_element(request, id):
+    element = get_object_or_404(Element, id=id)
+    element.delete()
+    messages.success(request, 'The element has been deleted')
+    return redirect('simulator:index_element')
+
+# BaseElements Pages
 @login_required(login_url="simulator:login")
 def index_base_element(request):
     base_elements = BaseElement.objects.all()
@@ -206,7 +285,7 @@ def detail_base_element(request, id):
 def edit_base_element(request, id):
     base_element = get_object_or_404(BaseElement, id=id)
     if request.method == "POST":
-        form = BaseElementForm(request.POST)
+        form = BaseElementForm(request.POST, instance=base_element)
         if form.is_valid():
             form.save()
             messages.success(request, "The element has been register !")
@@ -232,6 +311,67 @@ def delete_base_element(request, id):
     messages.success(request, 'The simulation '+base_element.label+' has been deleted')
     return redirect('simulator:index_base_element')
 
+# Operations available Pages
+@login_required(login_url="simulator:login")
+def index_operations_available(request):
+    operations = OperationAvailable.objects.all()
+    return render(request, "operation_available/index.html", {"operations": operations})
+
+@login_required(login_url="simulator:login")
+def new_operation_available(request):
+    if request.method == "POST":
+        form = OperationAvailableForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "The operation avaible has been register !")
+            return redirect("simulator:index_operations_available")
+        
+        message = ""
+        if form.errors:
+            for field in form:
+                for error in field.errors:
+                    message = message + error + ', '
+        messages.error(request, "An error appear : " + message)
+
+    form = OperationAvailableForm()
+    return render(request, 'operation_available/new.html', {"operation_available_form": form})
+
+@login_required(login_url="simulator:login")
+def detail_operation_available(request, id):
+    operation_available = get_object_or_404(OperationAvailable, id=id)
+    return render(request, "operation_available/detail.html", {
+        "base_element": operation_available
+    })
+
+@login_required(login_url="simulator:login")
+def edit_operation_available(request, id):
+    operation_available = get_object_or_404(OperationAvailable, id=id)
+    if request.method == "POST":
+        form = BaseElementForm(request.POST, instance=operation_available)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "The operation has been register !")
+            return redirect("simulator:index_operations_available")
+        
+        message = ""
+        if form.errors:
+            for field in form:
+                for error in field.errors:
+                    message = message + error + ', '
+        messages.error(request, "An error appear : " + message)
+    
+    form = BaseElementForm(instance=operation_available)
+    return render(request, "operation_available/edit.html", {
+        "operation_available_form": form,
+        "operation_available": operation_available
+        })
+    
+@login_required(login_url="simulation:login")
+def delete_operation_available(request, id):
+    operation_available = get_object_or_404(OperationAvailable, id=id)
+    operation_available.delete()
+    messages.success(request, 'The simulation '+operation_available.label+' has been deleted')
+    return redirect('simulator:index_operation_available')
 
 # User Pages
 def register_request(request):

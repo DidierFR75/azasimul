@@ -3,7 +3,7 @@
 ## Setup
 
 ```shell script
-$ make
+$ make && make install
 ```
 
 Website on localhost:8000
@@ -24,6 +24,8 @@ $ make refresh # Reload container based files
 $ make bash    # Run serveur terminal for debugging
 $ make migration # Execute model's migrations in Django
 $ make graph # Generate the entire graph of the system at web/aza_graph_project.png
+$ make django-shell # Access to django shell admin
+$ make tests # Run unit tests
 ```
 
 ### Demo credentials

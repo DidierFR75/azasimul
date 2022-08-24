@@ -3,11 +3,11 @@
 {% block content %} 
 {% load crispy_forms_tags %}
 <div class="container py-5">
-  <h1>Base Element</h1>
+  <h1>Edit {{ operation_available.label|title }}</h1>
   <form method="POST">
     {% csrf_token %}
-    {{ base_element_form|crispy }}
-    <button class="btn btn-primary" type="submit">Make a Base Element</button>
+    {{ operation_available_form|crispy }}
+    <button class="btn btn-primary" type="submit">Edit the operation</button>
   </form>
 </div>
 {% endblock %}

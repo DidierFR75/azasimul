@@ -1,12 +1,12 @@
 from cProfile import label
 from django.test import TestCase
-from ..models import Composite, BaseElement, BaseElementValue, Simulation
+from ..models import BaseComposite, BaseElement, BaseElementValue, Simulation
 import datetime
 
 class ModelTest(TestCase):
     @classmethod
     def setUp(self):
-        bat_pack = Composite.objects.create(label="BatPack", description="Cell pack with casing")
+        bat_pack = BaseComposite.objects.create(label="BatPack", description="Cell pack with casing")
         bat_pack.add_root(label="system", description="Set of BatPack")
 
         start = datetime.datetime.now()
@@ -43,7 +43,7 @@ class ModelTest(TestCase):
 
     def testTotalCost(self):
         simulation = Simulation.objects.get(title="Simulation Test")
-        composite_root = Composite.objects.filter(simulation__title="Simulation Test")
+        composite_root = BaseComposite.objects.filter(simulation__title="Simulation Test")
         
         total_cost = composite_root.sumByUnit("V")
         self.assertEqual(total_cost, 6.2)

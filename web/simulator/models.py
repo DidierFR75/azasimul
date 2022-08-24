@@ -1,4 +1,4 @@
-from secrets import choice
+from tokenize import blank_re
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser
@@ -10,10 +10,12 @@ from abc import ABCMeta, abstractmethod
 
 class Enums:
     UNIT = (
-        (None, ''),
+        (None, 'No unit'),
         ("W", "Watt"),
         ("$", "Dollar"),
-        ("V", "Volt")
+        ("V", "Volt"),
+        ("%", "Percentage"),
+        ("Ah", "Ampere hour")
     )
 
     UNIT_SEPARATOR = (
@@ -36,30 +38,25 @@ class Enums:
         ("ma", "Mobility Applications")
     )
 
-# Composite Design Pattern for model's values
+# Composite Design Pattern for engine representation
+
+class OperationAvailable(MP_Node):
+    """
+    Define the tree of all possible operations for a composite and its BaseElements
+    """
+    label = models.CharField(max_length=255)
+    function_associate = models.CharField(max_length=255)
+    parameters = models.JSONField() # {compositions.spec|base_element}
 
 class BaseElement(models.Model):
-    """
-    The BaseElement class represents the end objects of a composition. A BaseElement can't
-    have any children. It's the Leaf objects that do the actual work, whereas Composite
-    objects only delegate to their sub-components.
-    """
-
-    label = models.CharField(max_length=255)
+    label = models.CharField(max_length=255, unique=True)
     unit = models.CharField(max_length=30, choices=Enums.UNIT, default=None)
-    curve_interpolation = models.CharField(max_length=30, choices=Enums.CURVES, default=Enums.CURVES[0][0])
-    date = models.DateTimeField()
-    quantity = models.PositiveIntegerField()
-    value = models.CharField(max_length=255)
+    description = RichTextField(blank=True, null=True, default=None)
 
-    def sumByUnit(self, unit):
-        result = 0
-        if self.unit == unit:
-            for value in self.values:
-                result = result + (value["quantity"] * value["value"])
-        return result
+    def __str__(self) -> str:
+        return "{} ({})".format(self.label, self.unit)
 
-class Composite(MP_Node):
+class BaseComposite(MP_Node):
     """
     The Composite class represents the complex components that may have
     children. The Composite objects delegate the actual work to their
@@ -67,49 +64,60 @@ class Composite(MP_Node):
     """
     node_order_by = ['label']
 
-    label = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    base_elements = models.ManyToManyField(BaseElement, blank=True) # if no child
-
+    label = models.CharField(max_length=255, unique=True)
+    description = models.TextField(blank=True, null=True, default=None)
+    base_elements = models.ManyToManyField(BaseElement, blank=True)
+    operations_available = models.ManyToManyField(OperationAvailable, blank=True)
+    
     def __str__(self) -> str:
         return 'Composition : {}'.format(self.label)
 
-    def sumByUnit(self, unit):
-        leafs = self.base_elements if self.base_elements is not None else []
-        return sum([leaf.sumByUnit(unit) for leaf in leafs])
-
-# Simulations models
+# Simulations and their Elements
 class Simulation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
-    title = models.CharField(max_length=255)
+    
+    title = models.CharField(max_length=255, unique=True)
     description = RichTextField()
     type = models.CharField(max_length=100, choices=Enums.SIMULATION_TYPES, default=Enums.SIMULATION_TYPES[0][0])
     start = models.DateTimeField()
     end = models.DateTimeField()
     input_file = models.FileField(upload_to="inputs/", blank=True, null=True, validators=[validate_file_extension])
-    composition = models.OneToOneField(Composite, on_delete=models.CASCADE) # if it's root
+    root_composition = models.ForeignKey(BaseComposite, on_delete=models.CASCADE) # Each simulation is associate to the root composition
 
     def __str__(self) -> str:
         return self.title
 
-""" 
-class BaseElement(models.Model):
-    label = models.CharField(max_length=255)
-    value = models.FloatField()
-    unit = models.JSONField() #{'value1': UNIT, 'value2': UNIT }
-    unit_separator = models.CharField(max_length=3, choices=Enums.UNIT_SEPARATOR, default=None)
+class Composite(models.Model):
+    """
+    The Composite class represents the complex components that may have
+    children. The Composite objects delegate the actual work to their
+    children and then "sum-up" the result.
+    """
+    
+    quantity = models.PositiveIntegerField(null=True, blank=True, default=None)
+    additional_informations = models.JSONField(null=True, blank=True, default=None) # for information only
+    
+    simulation = models.ForeignKey(Simulation, on_delete=models.CASCADE)
+    base_composition = models.ForeignKey(BaseComposite, on_delete=models.CASCADE)
 
-class BaseElementValue(models.Model):
+class Element(models.Model):
+    """
+    The BaseElement class represents the end objects of a composition. A BaseElement can't
+    have any children. It's the Leaf objects that do the actual work, whereas Composite
+    objects only delegate to their sub-components.
+    """
+    date = models.DateField(null=True, blank=True, default=None)
+    value = models.CharField(max_length=255, null=True, blank=True, default=None)
+    quantity = models.PositiveIntegerField(null=True, blank=True, default=None)
+    additional_informations = models.JSONField(null=True, blank=True, default=None) # for information only
+
+    simulation = models.ForeignKey(Simulation, on_delete=models.CASCADE)
     base_element = models.ForeignKey(BaseElement, on_delete=models.CASCADE)
+    composition = models.ForeignKey(Composite, on_delete=models.CASCADE)
 
-class PossibleSpecification(models.Model):
-    specification_name = models.CharField(max_length=255)
-    functions_associate = models.JSONField() #{function_name: function_associate}
-    functions_parameters = models.JSONField() # {parameter_name: variable_type}
-
-class Specification(models.Model):
-    composition = models.ForeignKey('Composition', on_delete=models.CASCADE)
-    specifications_possible = models.ManyToManyField(PossibleSpecification)
-
-"""
+class Operation(models.Model):
+    label = models.CharField(max_length=255, unique=True)
+    operation_available = models.ForeignKey(OperationAvailable, on_delete=models.CASCADE)
+    unit = models.CharField(max_length=30, choices=Enums.UNIT, default=None)
+    parameters = models.JSONField(null=True, blank=True, default=None) # {base_element_label_1: param_position_1, base_element_label_2: param_position_2, ...}

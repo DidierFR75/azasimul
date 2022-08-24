@@ -10,3 +10,5 @@ pydotplus
 django-ckeditor
 openpyxl
 django-treebeard
+graphkit
+xlrd
