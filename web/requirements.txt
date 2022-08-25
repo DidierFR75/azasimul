@@ -12,3 +12,4 @@ openpyxl
 django-treebeard
 graphkit
 xlrd
+xlcalculator
