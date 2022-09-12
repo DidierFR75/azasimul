@@ -7,6 +7,11 @@
   <form method="POST" enctype="multipart/form-data">
     {% csrf_token %}
     {{ simulation_form|crispy }}
+      <div class="mb-3">
+        <label>Upload Files</label>
+        <input name="input_files" type="file" multiple class="form-control" />
+      </div>
+
     <button class="btn btn-primary" type="submit">Make a simulation</button>
   </form>
 </div>

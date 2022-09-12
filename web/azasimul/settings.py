@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     'crispy_forms',
     "django_extensions",
     "ckeditor",
-    "treebeard"
+    "django_cleanup.apps.CleanupConfig"
 ]
 
 MIDDLEWARE = [

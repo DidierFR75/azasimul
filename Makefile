@@ -40,6 +40,7 @@ install:
 	mkdir web/simulator/migrations
 	touch web/simulator/migrations/__init__.py
 	make
+	sleep 10
 	chmod -R 777 data
 	$(SERVER) python3 manage.py makemigrations
 	sleep 20
