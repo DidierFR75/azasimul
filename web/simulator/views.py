@@ -12,14 +12,16 @@ from django.utils.http import urlsafe_base64_encode
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
 from django.contrib.auth.decorators import login_required
-
-from openpyxl import Workbook, load_workbook
-from openpyxl.writer.excel import save_virtual_workbook
-import os
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+from django.conf import settings
 
 from .forms import NewUserForm, SimulationForm
 from .models import Simulation, SimulationInput
-from .interpreter import SheetInterpreter, SheetOutputGenerator
+from .interpreter import SheetOutputGenerator, SheetInterpreter
+
+import os
+import glob
 
 @login_required(login_url="simulator:login")
 def index(request):
@@ -93,17 +95,50 @@ def delete(request, id):
 
 @login_required(login_url='simulation:login')
 def generateCSV(request, id):
-    simulation = get_object_or_404(Simulation, id=id)    
+    simulation = get_object_or_404(Simulation, id=id) 
 
-    output_path = os.getcwd()+ "/simulator" +"/outputs/test/"
-    output = SheetOutputGenerator(simulation.getInputFolder(), "/simulator/outputs/")
-    output.generate(output_path)
+    # Copy /operations in media/input/simulation_id to take into account default operations   
 
-    ws = load_workbook(output_path)
+    # Generate output files
+    model_output_files = os.getcwd()+"/simulator/output/"
+    input_files = os.getcwd()+ "/media/"+simulation.getInputFolder()+"/"
+    result_path = settings.MEDIA_ROOT+ "/outputs/simulation_{}/".format(simulation.id)
 
-    response = HttpResponse(content=save_virtual_workbook(ws), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename=myexport.xlsx'
+    output = SheetOutputGenerator(input_files, model_output_files)
+    zip_path = output.generate(result_path, "simulation")
+    
+    # Zip all output file and serves to download
+    zip_file = open(zip_path, 'rb')
+    response = HttpResponse(zip_file, content_type='application/zip')
+    response['Content-Disposition'] = 'attachment; filename="simulation_result_{'+str(simulation.id)+'}"'
+
+    os.remove(zip_path)
+
     return response
+
+# Add Questions/Constants page
+@login_required(login_url="simulator:login")
+def new_co(request):
+    if request.method == "POST":
+        # Save file uploaded
+        files = request.FILES.getlist('files')
+        for f in files:
+            default_storage.save('tmp/'+str(f), ContentFile(f.read()))
+
+        # Merge files datas in operations/constant sheets
+        new_main_files = SheetInterpreter(settings.MEDIA_ROOT+"tmp/")
+        main_files = SheetInterpreter(os.getcwd()+ "/simulator/input/")
+
+        main_files.merge(new_main_files)
+
+        # Supprimer les fichiers uploadés
+        for f in files:
+            os.remove(settings.MEDIA_ROOT+'tmp/'+str(f))
+        
+        messages.success(request, "The new operations/constants has been register !")
+        return redirect("simulator:index")
+        
+    return render(request, 'co/new.html')
 
 # User Pages
 def register_request(request):

@@ -11,6 +11,8 @@ from dateutil.relativedelta import relativedelta
 import re
 from statistics import mean
 from anytree import Node, RenderTree, find, Resolver, PostOrderIter
+import pathlib
+import zipfile
 
 class InputAnalyzer:
 
@@ -34,6 +36,7 @@ class InputAnalyzer:
         self.metadatas = {}
         self.operations = {}
         self.constants = {}
+        self.summary = {}
 
     # Carefull _getValuesBySpecificiation could return bad values for % as exemple
     # Get external parameters
@@ -59,7 +62,7 @@ class InputAnalyzer:
             eval = round(eval, 3)
         return eval
     
-    ### Helper's functions
+    ### Test type's functions
 
     def isOperationSheet(self):
         if "operation" in self.sheet_name.lower():
@@ -71,6 +74,11 @@ class InputAnalyzer:
             return True
         return False
     
+    def isSummarySheet(self):
+        if "summary" in self.sheet_name.lower():
+            return True
+        return False
+
     def isSpecificationSheet(self):
         if self.specifications != [] and self.points != []:
             return True
@@ -222,13 +230,49 @@ class InputAnalyzer:
             # Add result of interpolation for each point
             for point in self.points:
                 if not any(v["row"] == point["row"] for v in values):
-                    result.append(float(interp1d(point["row"])))
+                    result.append(round(float(interp1d(point["row"])), 3))
                 else:
                     result.append(list(filter(lambda v: v["row"] == point["row"], values))[0]["value"])
                     
         return result
 
-    # Access Functions
+    # Init Functions
+
+    def create(self):
+        """
+            Return JSON storage of the input
+        """
+
+        if self.sheet_name.startswith(self.DELIMITER_SHEET_UNFOLLOW):
+            return False
+
+        if self.isOperationSheet():
+            self.operations = self._generateOperations()
+            return True
+
+        if self.isConstantSheet():
+            self.constants = self._generateConstants()
+            return True
+
+        if self.isSummarySheet():
+            self.summary = self._generateConstants()
+            return True
+
+        # Get all elements in worksheet
+        self.metadatas = self._generateMetaData()
+        self.points = self._generatePointsWithDates()
+        self.specifications = self._generateSpecifications()
+        
+        if self.isSpecificationSheet() and self.metadatas == {}:
+            raise Exception("Metadatas are missing...{}".format(self.sheet_name))
+
+        # Add Interpolate values  
+        for specification in self.specifications:
+            specification["values"] = self._evaluateInterpolation(specification)       
+        
+        return True
+    
+    # Add Functions
 
     def addSpecification(self, specifcation_name, value, unit, interpolation="CONST"):
         """
@@ -248,71 +292,62 @@ class InputAnalyzer:
             "unit": unit,
             "interpolation": interpolation
         })
+    
+    # Access Functions
 
-    def getRawDataStorage(self):
-        """
-            Return JSON storage of the input
-        """
-
-        if self.sheet_name.startswith(self.DELIMITER_SHEET_UNFOLLOW):
-            return False
-
-        if self.isOperationSheet():
-            self.operations = self._generateOperations()
-            return True
-
-        if self.isConstantSheet():
-            self.constants = self._generateConstants()
-            return True
-
-        # Get all elements in worksheet
-        self.metadatas = self._generateMetaData()
-        self.points = self._generatePointsWithDates()
-        self.specifications = self._generateSpecifications()
-        
-        if((self.points != [] or self.specifications != []) and self.metadatas == {}):
-            raise Exception("Metadatas are missing...{}".format(self.sheet_name))
-
-        # Add Interpolate values  
-        for specification in self.specifications:
-            specification["values"] = self._evaluateInterpolation(specification)       
-        
-        return True
-        
     def getSpecificationByName(self, name):
         return next((item for item in self.specifications if item["specification_name"].lower() == name.lower()), None)
 
     def getConstantByName(self, name):
-        test = iter([item for item in list(self.constants.values())[0] if item["constant_name"].lower() == name.lower()])
-        return next(test, None)
+        result = iter([item for item in list(self.constants.values())[0] if item["constant_name"].lower() == name.lower()])
+        return next(result, None)
+    
+    def getSummaryByName(self, name):
+        result = iter([item for item in list(self.summary.values())[0] if item["constant_name"].lower() == name.lower()])
+        return next(result, None)
 
     def getOperationByName(self, name):
-        return next((item for item in self.operations if item["operation_name"].lower() == name.lower()), None)                         
+        result = iter([item for item in self.operations if item["operation_name"].lower() == name.lower()])
+        return next(result, None)                        
 
 class SheetTree:
     def __init__(self, path) -> None:
         self.path = path
+        
         self.root = Node("root")
+        self.root.name = "Summary"
+
         self.all_sheet = None
         self.operation_sheets = []
-    
-    def analyzeAllSheet(self):
-        result = {}
-        all_files = next(os.walk(self.path), (None, None, []))[2]
-        all_wks = {file: load_workbook(self.path + file) for file in all_files}
+        self.constant_sheets = []
 
+    def analyzeAllSheet(self, path):
+        """
+        Return dict with {file: {sheetname: analyzer}}
+        """
+        result = {}
+
+        # Load all workbooks
+        all_files = next(os.walk(path), (None, None, []))[2]
+        all_wks = {file: load_workbook(path + file) for file in all_files}
+        
+        # Create dict with file: {sheetname: analyzer}
         for file, wb in all_wks.items():
             result[file] = []
             for sheet_name in all_wks[file].sheetnames:
-                analyzer = InputAnalyzer(wb[sheet_name], sheet_name, self.path + file)
-                if analyzer.getRawDataStorage():
+                analyzer = InputAnalyzer(wb[sheet_name], sheet_name, path + file)
+                if analyzer.create():
                     result[file].append({sheet_name: analyzer})
 
         return result
 
-    def mapSheetToTree(self):
+    def mapSheetToTree(self, path=None):
+        """
+        Add sheets in path to the tree, path not define default self.path sheet are add else it's personalize sheet's path
+        """
         liste = []
-        self.all_sheet = self.analyzeAllSheet()
+
+        self.all_sheet = self.analyzeAllSheet(path if path is not None else self.path)
        
         # Create all nodes
         for file in self.all_sheet:
@@ -323,13 +358,17 @@ class SheetTree:
                         continue
                 
                     if analyzer.isConstantSheet():
+                        self.constant_sheets.append(analyzer)
+                        continue
+                
+                    if analyzer.isSummarySheet():
                         self.root.analyzer = analyzer
-                        self.root.name = "Constants"
                         continue
 
                     if analyzer.metadatas == {}:
                         continue
-
+                    
+                    # Get parent name if exist
                     parent_name = analyzer.metadatas[analyzer.PRODUCT_PARENT] if (analyzer.PRODUCT_PARENT in analyzer.metadatas) else None
                                                 
                     liste.append(
@@ -348,9 +387,6 @@ class SheetTree:
                     element[2].parent = liste[i[0]][2]
 
 class SheetInterpreter:
-    """
-    Convert all operations with specific language to comprehensible mathematical operation in analyzer
-    """
     def __init__(self, folder) -> None:
         self.tree = SheetTree(folder)
         self.tree.mapSheetToTree()
@@ -433,7 +469,9 @@ class SheetInterpreter:
                             
                         # Check if fcn_name is a child or parent function
                         if len(attr) == 2:
-                            according_op = self.findOperation(attr[0], attr[1])
+                            for analyzer in self.tree.operation_sheets:
+                                according_op = self.findOperation(attr[0], attr[1])
+                            
                             if according_op is not None:
                                 wks = find(self.tree.root, lambda node: node.name.lower() == attr[0].lower())                        
                             
@@ -458,7 +496,7 @@ class SheetInterpreter:
                 
         return operations
 
-    def _evaluateOperationValues(self):
+    def evaluate(self):
         """
         Replace all [] Expression by their Values to be evaluate next
         """
@@ -478,25 +516,10 @@ class SheetInterpreter:
                     for operation in operations:
                         try:
                             operation["operation"] = eval(operation["operation"])
+                            wks.analyzer.addSpecification(operation["operation_name"], operation["operation"], operation["unit"], "CONST")
                         except:
                             pass
     
-    def _addOperationValueToAnalyzer(self):
-        """
-        Add all evaluate values to analyzer class as new column with CONST Value
-        """
-        for o_wks in self.tree.operation_sheets:
-            for operation_category, operations in o_wks.operations.items():
-                wks = find(self.tree.root, lambda node: node.name.lower() == operation_category.lower())
-                if wks is not None:
-                    for operation in operations:
-                        wks.analyzer.addSpecification(operation["operation_name"], operation["operation"], operation["unit"], "CONST")
-    
-    # Access functions
-    def evaluate(self):
-        self._evaluateOperationValues()
-        self._addOperationValueToAnalyzer()
-
 class OutputAnalyzer:
 
     EXPRESSION = '\[[ \(\)a-zA-Z0-9\.]+\]' # expression of a var in output's cell
@@ -530,6 +553,7 @@ class OutputAnalyzer:
                         attr = m.split(".")
                         if len(attr) > 1:
                             node = find(self.tree.root, lambda node: node.name.lower() == attr[0].lower())
+
                             if node is not None:
                                 val = {}
 
@@ -544,6 +568,9 @@ class OutputAnalyzer:
                                 if node.analyzer.isConstantSheet():
                                     val = node.analyzer.getConstantByName(attr[1])
                                 
+                                if node.analyzer.isSummarySheet():
+                                    val = node.analyzer.getSummaryByName(attr[1])
+                                
                                 cell.value = val["value"] if "value" in val and val["value"] is not None else ""
 
     def save(self, path):
@@ -552,29 +579,55 @@ class OutputAnalyzer:
 class SheetOutputGenerator:
 
     def __init__(self, input_path, output_path) -> None:
-        self.output_path = os.getcwd() + output_path
-        tree_interpreter = SheetInterpreter(os.getcwd()+ "/simulator"+input_path)
+        self.output_path = output_path
+        tree_interpreter = SheetInterpreter(input_path)
         tree_interpreter.evaluate()
         self.tree = tree_interpreter.tree
 
     def analyzeAllOutputSheet(self):
+        """
+        Return dict with file: {sheetname: analyzer} 
+        """
         result = {}
+        
+        # Load all workbooks
         all_files = next(os.walk(self.output_path), (None, None, []))[2]
         all_wks = {file: load_workbook(self.output_path + file) for file in all_files}
-
+        
+        # Create dict with file: {sheetname: analyzer}
         for file, wb in all_wks.items():
             result[file] = {sheet_name: OutputAnalyzer(wb, sheet_name, self.output_path + file, self.tree) for sheet_name in all_wks[file].sheetnames}
             
         return result
 
-    def generate(self, to):
+    def _createZip(self, to, name):
+        """
+        Create zip of a folder and return name.zip path
+        """
+        directory = pathlib.Path(to)
+        destination = str(directory.parent.absolute())+"/"+name+".zip"
+
+        with zipfile.ZipFile(destination, mode="w") as archive:
+            for file_path in directory.iterdir():
+                archive.write(file_path, arcname=file_path.name)
+        return destination
+
+    def generate(self, folder, name):
         """
         Generate final output xlsx
         """
         all_sheets = self.analyzeAllOutputSheet()
+
+        # Create folder is not exist
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+        # Replace var in output model folder by values and return a zip file of all of them
         count = 0
         for file, sheets in all_sheets.items():
             count +=1
             for sheet_name, analyzer in sheets.items():
                 analyzer.findAndReplaceAnnotateValues()
-                analyzer.save(to+"_"+str(count)+".xlsx")
+                analyzer.save(folder+"simulation_"+str(count)+".xlsx")
+
+        return self._createZip(folder, name)

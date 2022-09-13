@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %} 
+{% load crispy_forms_tags %}
+<div class="container py-5">
+  <h1>Add Constants or Operations</h1>
+  <form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+      <div class="mb-3">
+        <label>Upload Files</label>
+        <input name="files" type="file" multiple class="form-control" />
+      </div>
+
+    <button class="btn btn-primary" type="submit">Add</button>
+  </form>
+</div>
+{% endblock %}

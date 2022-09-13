@@ -6,8 +6,6 @@
 $ make && make install
 ```
 
-Website on localhost:8000
-
 ## Documentation
 
 You can find the app on http://localhost:8000 and the Jenkins interface on http://localhost:8080 
@@ -26,6 +24,8 @@ $ make migration # Execute model's migrations in Django
 $ make graph # Generate the entire graph of the system at web/aza_graph_project.png
 $ make django-shell # Access to django shell admin
 $ make tests # Run unit tests
+$ make deploy # Deploy the project to the production server
+$ make help # Display description of all commands
 ```
 
 ### Demo credentials
@@ -34,3 +34,14 @@ $ make tests # Run unit tests
 | -------- | --------------------- |:-------------:| ----- |
 | admin    | admin@azasimul.fr     |  AzaPass999   | Admin |
 | aza      | aza@azasimul.fr       |  AzaPass999   | User  |
+
+
+### Deployment
+
+```shell script
+$ make deploy
+```
+
+### Input file format
+
+### Output file format
