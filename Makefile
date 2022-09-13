@@ -1,7 +1,7 @@
 .PHONY: deploy
 
 # Environnement's variables
-SERVER=docker-compose exec web
+SERVER=docker-compose run web
 PRODUCTION_SERVER_ADDRESS=ubuntu@146.59.237.34
 
 # Display Colors
@@ -48,9 +48,7 @@ install: ## Init data's project
 	make
 	sleep 10
 	chmod -R 777 data
-	$(SERVER) python3 manage.py makemigrations
-	sleep 20
-	$(SERVER) python3 manage.py migrate
+	make migration
 	make graph
 	$(SERVER) python3 manage.py loaddata simulator/fixtures/users.json
 	$(SERVER) python3 manage.py collectstatic --noinput
@@ -62,9 +60,16 @@ django-shell: ## Open django shell
 tests: ## Launch unit tests
 	$(SERVER) python3 manage.py test tests/
 
+install-prod: ## Install system in production
+	$(SERVER) python3 manage.py makemigrations
+	$(SERVER) python3 manage.py migrate
+	$(SERVER) python3 manage.py loaddata simulator/fixtures/users.json
+	$(SERVER) python3 manage.py collectstatic --noinput
+	make restart
+
 deploy: ## Deploy on production server
 	@echo -e "\n$(WARN_COLOR)- Deploy the $(WARN_COLOR)sources$(WARN_COLOR) of $(ERROR_COLOR)production server$(NO_COLOR)\n"
-	@ssh $(remote_ssh) "sudo rm -rf azasimul"
+	@ssh $(PRODUCTION_SERVER_ADDRESS) "sudo rm -rf azasimul"
 	@rsync -auv \
 	--exclude '/web/media' \
 	--exclude '/jenkins' \
@@ -73,6 +78,7 @@ deploy: ## Deploy on production server
 	--exclude '/data' \
 	. $(PRODUCTION_SERVER_ADDRESS):~/azasimul
 	@echo -e "\n$(WARN_COLOR)- Start $(WARN_COLOR)the $(WARN_COLOR) prod $(ERROR_COLOR)server$(NO_COLOR)\n"
+	@ssh $(PRODUCTION_SERVER_ADDRESS) "cd azasimul && make && rm -rf data && rm -rf web/simulator/migrations && mkdir web/simulator/migrations && touch web/simulator/migrations/__init__.py && make && sleep 10 && sudo chmod -R 777 . && sudo chmod -R 777 data && make install-prod"
 
-help: ## Display the description of each action
+help: ## Display the description of each action 
 	@grep -E '(^[a-zA-Z_-]+:.*?##.*$$)|(^##)' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[32m%-15s\033[0m %s\n", $$1, $$2}' | sed -e 's/\[32m##/[33m/'
