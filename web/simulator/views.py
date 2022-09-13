@@ -21,7 +21,7 @@ from .models import Simulation, SimulationInput
 from .interpreter import SheetOutputGenerator, SheetInterpreter
 
 import os
-import glob
+import shutil
 
 @login_required(login_url="simulator:login")
 def index(request):
@@ -70,7 +70,16 @@ def edit(request, id):
         form = SimulationForm(request.POST, request.FILES, instance=simulation)
         if form.is_valid():
             form.save()
-            messages.success(request, "The simulation has been register !")
+             # Files Handler
+            files = request.FILES.getlist('input_files')
+            # Delete previous inputs
+            if len(files) > 0:
+                simulation.simulation_input.all().delete()
+            # Add new inputs
+            for f in files:
+                SimulationInput.objects.create(input_file=f, simulation=simulation)
+
+            messages.success(request, "The simulation has been modify !")
             return redirect("simulator:index")
         
         message = ""
@@ -97,13 +106,18 @@ def delete(request, id):
 def generateCSV(request, id):
     simulation = get_object_or_404(Simulation, id=id) 
 
-    # Copy /operations in media/input/simulation_id to take into account default operations   
-
-    # Generate output files
+    model_input_files = os.getcwd() + "/simulator/input/"
     model_output_files = os.getcwd()+"/simulator/output/"
     input_files = os.getcwd()+ "/media/"+simulation.getInputFolder()+"/"
     result_path = settings.MEDIA_ROOT+ "/outputs/simulation_{}/".format(simulation.id)
 
+    # Copy /operations in media/input/simulation_id to take into account default operations
+    for model_file in os.listdir(model_input_files):
+        src = model_input_files + model_file
+        dst = input_files + model_file
+        shutil.copyfile(src, dst)
+
+    # Generate output files
     output = SheetOutputGenerator(input_files, model_output_files)
     zip_path = output.generate(result_path, "simulation")
     
@@ -112,6 +126,7 @@ def generateCSV(request, id):
     response = HttpResponse(zip_file, content_type='application/zip')
     response['Content-Disposition'] = 'attachment; filename="simulation_result_{'+str(simulation.id)+'}"'
 
+    # Remove zip file after download
     os.remove(zip_path)
 
     return response

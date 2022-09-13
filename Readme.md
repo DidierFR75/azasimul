@@ -1,5 +1,9 @@
 # AzaSimul - Financial simulation
 
+## Demo
+
+You can find the app on http://aza.masterbrain.fr:8000 and the Jenkins interface on http://aza.masterbrain.fr:8080 
+
 ## Setup
 
 ```shell script

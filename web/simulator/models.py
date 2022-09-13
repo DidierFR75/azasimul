@@ -35,4 +35,4 @@ def simulation_directory_path(instance, filename):
 
 class SimulationInput(models.Model):
     input_file = models.FileField(upload_to=simulation_directory_path, blank=True, null=True, validators=[validate_file_extension])
-    simulation = models.ForeignKey(Simulation, on_delete=models.CASCADE, related_name="input_files")
+    simulation = models.ForeignKey(Simulation, on_delete=models.CASCADE, related_name="simulation_input", related_query_name="simulation_input")
