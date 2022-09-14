@@ -6,6 +6,8 @@ You can find the app on http://aza.masterbrain.fr:8000 and the Jenkins interface
 
 ## Setup
 
+You must have the Docker Deamon running on your machine.
+
 ```shell script
 $ make && make install
 ```
@@ -46,24 +48,30 @@ $ make help # Display description of all commands
 $ make deploy
 ```
 
-### Input file format
+# Data importation
+
+## Specifications and Summary
+
+You can put the essential information of the project in an excel sheet with the name: **summary**
+The system will consider that the first column corresponds to the name of an expected field and the following column will correspond to the value of this field.
+
 
 ## Models
 
-Tous les models sont stocker dans web/media/models et sont téléchargeable via l'interface web sur http://localhost:8000/new_co
+All models are stored in web/media/models and can be downloaded via the web interface at http://localhost:8000/new_co
 
-### Model Input file format
+### Input Model (Operations and Constants)
 
 These templates define the default constants and operations for a simulation.
 If the specification files already have one of these operations, then it will be ignored and calculated as defined by the user.
 
-The constants have the following format :
+The **constants** have the following format :
 
 | Constant Category | Constant name | Value  | Unit  |
 | ----------------- | ------------- |:------:| ----- |
 | Dimensions        | Length        |  9.1   | cm    |
 
-The operations have the following format:
+The **operations** have the following format:
 
 | Composition name  | Operation name                   | Operation definition                                                 | Unit  |
 | ----------------- | -------------------------------- |:--------------------------------------------------------------------:| ----- |
@@ -75,6 +83,6 @@ Variables are defined by [name] and represent a specification to be provided by 
 
 Functions are defined by {name} and represent a previously defined function in the current composition, {Composition_name.name} represents a function defined in Composition_name.
 
-### Model Output file format
+### Output Model
 
 To define a value to display in the model, you just have to add a value such as [Composition_name/Function_name.name] in a cell and it will be automatically replaced by the system if it exists.
