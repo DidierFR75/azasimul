@@ -148,6 +148,10 @@ class InputAnalyzer:
 
         return result
 
+    def _generateSummary(self):
+        return {composition.value: self.ws.cell(row=composition.row, column=composition.column+1).value 
+            for composition in self.ws["A"] if composition.value is not None and self.ws.cell(row=composition.row, column=composition.column+1).value is not None}
+
     def _generateOperations(self):
         """
         Return operations
@@ -255,7 +259,7 @@ class InputAnalyzer:
             return True
 
         if self.isSummarySheet():
-            self.summary = self._generateConstants()
+            self.summary = self._generateSummary()
             return True
 
         # Get all elements in worksheet
@@ -519,7 +523,7 @@ class SheetInterpreter:
                             wks.analyzer.addSpecification(operation["operation_name"], operation["operation"], operation["unit"], "CONST")
                         except:
                             pass
-    
+
 class OutputAnalyzer:
 
     EXPRESSION = '\[[ \(\)a-zA-Z0-9\.]+\]' # expression of a var in output's cell
@@ -631,3 +635,25 @@ class SheetOutputGenerator:
                 analyzer.save(folder+"simulation_"+str(count)+".xlsx")
 
         return self._createZip(folder, name)
+
+class FileChecker:
+    def __init__(self, path) -> None:
+        self.path = path
+        self.summary = None
+        self.non_accepted = []
+
+    def checkForSpecFormat(self):
+        # Check if file contains only specifications and track summary data as well ass non accepted files as Constants or Operations
+        wb = load_workbook(self.path)
+        for sheet_name in wb.sheetnames:
+            analyzer = InputAnalyzer(wb[sheet_name], sheet_name, self.path)
+            if analyzer.create():
+                if analyzer.isSummarySheet():
+                    self.summary = analyzer.summary
+                    wb.remove(wb[sheet_name])
+                
+                if analyzer.isConstantSheet() or analyzer.isOperationSheet():
+                    self.non_accepted.append(sheet_name)
+                    wb.remove(wb[sheet_name])
+                        
+        wb.save(self.path)

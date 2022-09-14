@@ -19,7 +19,7 @@ from django.http import Http404
 
 from .forms import NewUserForm, SimulationForm
 from .models import Simulation, SimulationInput
-from .interpreter import SheetOutputGenerator, SheetInterpreter
+from .interpreter import FileChecker, SheetOutputGenerator, SheetInterpreter
 
 import os
 import shutil
@@ -40,13 +40,39 @@ def new(request):
             # Add current User in request
             simulation = form.save(commit=False)
             simulation.user = request.user
-            simulation.save()
             
             # Files Handler
             files = request.FILES.getlist('input_files')
+            inputs = []
             for f in files:
-                SimulationInput.objects.create(input_file=f, simulation=simulation)
-                        
+                # Temporary save file
+                path = settings.MEDIA_ROOT+"/tmp/"+str(f)
+                default_storage.save(path, ContentFile(f.read()))
+                # Check if file has specification format and if it has summary sheet
+                fc = FileChecker(path)
+                fc.checkForSpecFormat()
+                os.remove(path)
+
+                # Add additionnal data in simulation
+                if fc.summary is not None:
+                    for key, value in fc.summary.items():
+                        key = key.lower().replace(" ", "_")
+                        if hasattr(simulation, key) and (getattr(simulation, key) is None or getattr(simulation, key) != value):
+                            setattr(simulation, key, value)
+
+                if fc.non_accepted != []:
+                    messages.error(request, "The following sheets was not take into account : "+ ','.join(fc.non_accepted))
+
+                # Create file object
+                inputs.append(SimulationInput(input_file=f))
+            
+            # Create simulation object and inputs objects
+            simulation.save()
+            
+            for input in inputs:
+                input.simulation = simulation
+                input.save()
+
             messages.success(request, "The simulation has been register !")
             return redirect("simulator:index")
         
@@ -96,7 +122,7 @@ def edit(request, id):
 def delete(request, id):
     simulation = get_object_or_404(Simulation, id=id)
     simulation.delete()
-    messages.success(request, 'The simulation '+simulation.title+' has been deleted')
+    messages.success(request, 'The simulation '+simulation.project_name+' has been deleted')
     return redirect('simulator:index')
 
 @login_required(login_url='simulation:login')
@@ -161,8 +187,6 @@ def delete_co(request, name):
         return redirect('simulator:index_co')
     raise Http404
    
-
-
 # User Pages
 def register_request(request):
     if request.method == "POST":

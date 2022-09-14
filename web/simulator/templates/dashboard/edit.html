@@ -3,8 +3,8 @@
 {% block content %} 
 {% load crispy_forms_tags %}
 <div class="container py-5">
-  <h1>Edit {{ simulation.title|title }}</h1>
-  <form method="POST" enctype="multipart/form-data">
+  <h1 class="text-center">Edit {{ simulation.title|title }}</h1>
+  <form method="POST" enctype="multipart/form-data" class="mt-5">
     {% csrf_token %}
     {{ edit_form|crispy }}
     <div class="mb-3">

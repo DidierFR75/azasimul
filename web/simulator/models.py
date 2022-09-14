@@ -5,10 +5,10 @@ from django.contrib.auth.models import User
 
 class Enums:
     SIMULATION_TYPES = (
-        ("sas", "Stand Alone Storage"),
-        ("pvs", "PV + Storage"),
-        ("ws", "Wind + Storage"),
-        ("ma", "Mobility Applications")
+        ("Stand Alone Storage", "Stand Alone Storage"),
+        ("PV + Storage", "PV + Storage"),
+        ("Wind + Storage", "Wind + Storage"),
+        ("Mobility Applications", "Mobility Applications")
     )
 
 # Simulations and their Elements
@@ -17,11 +17,11 @@ class Simulation(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     
-    title = models.CharField(max_length=255, unique=True)
-    description = RichTextField()
-    type = models.CharField(max_length=100, choices=Enums.SIMULATION_TYPES, default=Enums.SIMULATION_TYPES[0][0])
-    start = models.DateTimeField()
-    end = models.DateTimeField()
+    project_name = models.CharField(max_length=255, unique=True, blank=True)
+    project_description = RichTextField(blank=True)
+    project_type = models.CharField(max_length=100, blank=True, choices=Enums.SIMULATION_TYPES, default=Enums.SIMULATION_TYPES[0][0])
+    start = models.DateTimeField(blank=True)
+    end = models.DateTimeField(blank=True)
 
     def __str__(self) -> str:
         return self.title
@@ -35,4 +35,4 @@ def simulation_directory_path(instance, filename):
 
 class SimulationInput(models.Model):
     input_file = models.FileField(upload_to=simulation_directory_path, blank=True, null=True, validators=[validate_file_extension])
-    simulation = models.ForeignKey(Simulation, on_delete=models.CASCADE, related_name="simulation_input", related_query_name="simulation_input")
+    simulation = models.ForeignKey(Simulation, on_delete=models.CASCADE, related_name="simulation_input", related_query_name="simulation_input", blank=True)

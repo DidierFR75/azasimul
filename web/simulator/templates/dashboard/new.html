@@ -2,15 +2,21 @@
 
 {% block content %} 
 {% load crispy_forms_tags %}
+
 <div class="container py-5">
-  <h1>Dashboard</h1>
-  <form method="POST" enctype="multipart/form-data">
+  <h1 class="text-center">Dashboard</h1>
+  <form method="POST" enctype="multipart/form-data" class="mt-5">
     {% csrf_token %}
+    <div class="mb-3">
+      <label>Download the files containing the specifications</label>
+      <input name="input_files" type="file" multiple class="form-control" />
+    </div>
+    <div class="hr-theme-slash-2">
+      <div class="hr-line"></div>
+      <div class="hr-icon">And/Or</div>
+      <div class="hr-line"></div>
+    </div>
     {{ simulation_form|crispy }}
-      <div class="mb-3">
-        <label>Upload Files</label>
-        <input name="input_files" type="file" multiple class="form-control" />
-      </div>
 
     <button class="btn btn-primary" type="submit">Make a simulation</button>
   </form>

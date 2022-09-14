@@ -2,10 +2,9 @@
 
 {% block content %} 
 <div class="container py-5">
-    <div class="d-flex flex-row">
-        <h1>Simulation's List</h1>
-    </div>
-    <div class="d-flex flex-row-reverse">
+    <h1 class="text-center">Simulation's List</h1>
+
+    <div class="d-flex flex-row-reverse mb-3 mt-5">
         <a href="{% url 'simulator:new' %}" class="btn btn-primary">New simulation</a>
     </div>
     {% if simulations %}
@@ -25,9 +24,9 @@
                     {% for simulation in simulations %}
                     <tr>
                         <td>{{ simulation.user.username|title }}</td>
-                        <td>{{ simulation.title|title }}</td>
-                        <td>{{ simulation.type }}</td>
-                        <td>{{ simulation.description|safe }}</td>
+                        <td>{{ simulation.project_name|title }}</td>
+                        <td>{{ simulation.project_type }}</td>
+                        <td>{{ simulation.project_description|safe }}</td>
                         <td>{{ simulation.created_at|date:'Y/M/d' }}</td>
                         <td>
                             <div class="dropdown show">
