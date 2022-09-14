@@ -153,26 +153,32 @@ def generateCSV(request, id):
     return response
 
 # Add Questions/Constants page
-def index_co(request):
+def index_co(request, type):
+    model = MODEL_INPUT_FILES if type == 'input' else MODEL_OUTPUT_FILES
+
     return render(request, 'co/index.html', {
-        "models": os.listdir(MODEL_INPUT_FILES)
+        "models": os.listdir(model),
+        "type": type
     })
 
 @login_required(login_url="simulator:login")
-def new_co(request):
+def new_co(request, type):
+    model = MODEL_INPUT_FILES if type == 'input' else MODEL_OUTPUT_FILES
     if request.method == "POST":
         # Save file uploaded
         files = request.FILES.getlist('files')
         for f in files:
-            default_storage.save(MODEL_INPUT_FILES+str(f), ContentFile(f.read()))
+            default_storage.save(model+str(f), ContentFile(f.read()))
         
         messages.success(request, "The new operations/constants has been register !")
-        return redirect("simulator:index_co")
+        return redirect("simulator:index_co", type=type)
         
     return render(request, 'co/new.html')
 
-def download_co(request, name):
-    path = MODEL_INPUT_FILES+name
+def download_co(request, type, name):
+    model = MODEL_INPUT_FILES if type == 'input' else MODEL_OUTPUT_FILES
+
+    path = model+name
     if os.path.exists(path):
         with open(path, 'rb') as fh:
             response = HttpResponse(fh.read(), content_type="application/vnd.ms-excel")
@@ -180,11 +186,13 @@ def download_co(request, name):
             return response
     raise Http404
    
-def delete_co(request, name):
-    path = MODEL_INPUT_FILES+name
+def delete_co(request, type, name):
+    model = MODEL_INPUT_FILES if type == 'input' else MODEL_OUTPUT_FILES
+
+    path = model+name
     if os.path.exists(path):
         os.remove(path)
-        return redirect('simulator:index_co')
+        return redirect('simulator:index_co', type=type)
     raise Http404
    
 # User Pages

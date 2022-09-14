@@ -5,7 +5,7 @@
     <h1 class="text-center">Model's List</h1>
 
     <div class="d-flex flex-row-reverse mb-3 mt-5">
-        <a href="{% url 'simulator:new_co' %}" class="btn btn-primary">New model</a>
+        <a href="{% url 'simulator:new_co' type %}" class="btn btn-primary">New model</a>
     </div>
     {% if models %}
         <div class="table-responsive" style="min-height: 10em;">
@@ -26,8 +26,8 @@
                                 Actions
                                 </a>
                                 <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
-                                    <a class="dropdown-item" href="{% url 'simulator:download_co' model %}"><i class="fa-solid fa-download"></i> Download</a>
-                                    <a class="dropdown-item" href="{% url 'simulator:delete_co' model %}"><i class="fa-solid fa-trash"></i> Delete</a>
+                                    <a class="dropdown-item" href="{% url 'simulator:download_co' type model %}"><i class="fa-solid fa-download"></i> Download</a>
+                                    <a class="dropdown-item" href="{% url 'simulator:delete_co' type model %}"><i class="fa-solid fa-trash"></i> Delete</a>
                                 </div>
                             </div>
                         </td>
@@ -37,7 +37,7 @@
             </table>
         </div>
     {% else %}
-        <p class="text-center mt-3">There is no model created in the system. Do you want to <a href="{% url 'simulator:new_co' %}">create one</a> ?</p>
+        <p class="text-center mt-3">There is no model created in the system. Do you want to <a href="{% url 'simulator:new_co' type %}">create one</a> ?</p>
     {% endif %}
 </div>
 {% endblock %}

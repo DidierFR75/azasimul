@@ -10,10 +10,10 @@ urlpatterns = [
     path("delete/<int:id>", views.delete, name="delete"),
     path("generate/<int:id>", views.generateCSV, name="csv"),
     # Constants/Operations pages
-    path('index_co', views.index_co, name='index_co'),
-    path('new_co', views.new_co, name='new_co'),
-    path('download_co/<str:name>', views.download_co, name='download_co'),
-    path('delete_co/<str:name>', views.delete_co, name='delete_co'),
+    path('index_co/<str:type>', views.index_co, name='index_co'),
+    path('new_co/<str:type>', views.new_co, name='new_co'),
+    path('download_co/<str:type>/<str:name>', views.download_co, name='download_co'),
+    path('delete_co/<str:type>/<str:name>', views.delete_co, name='delete_co'),
     # User pages
     path("register", views.register_request, name="register"),
     path("login", views.login_request, name="login"),

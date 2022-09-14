@@ -14,10 +14,17 @@
           </div>
         </li>
         <li class="nav-item dropdown">
-          <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Models</a>
+          <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Input Models</a>
           <div class="dropdown-menu">
-              <a href="{% url 'simulator:index_co' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> List</a>
-              <a href="{% url 'simulator:new_co' %}" class="dropdown-item"><i class="fa-solid fa-download"></i> Add</a>
+              <a href="{% url 'simulator:index_co' 'input' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> List</a>
+              <a href="{% url 'simulator:new_co' 'input' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Add</a>
+          </div>
+        </li>
+        <li class="nav-item dropdown">
+          <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Output Models</a>
+          <div class="dropdown-menu">
+              <a href="{% url 'simulator:index_co' 'output' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> List</a>
+              <a href="{% url 'simulator:new_co' 'output' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Add</a>
           </div>
         </li>
         <li class="nav-item">
