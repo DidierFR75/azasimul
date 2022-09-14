@@ -15,6 +15,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.conf import settings
+from django.http import Http404
 
 from .forms import NewUserForm, SimulationForm
 from .models import Simulation, SimulationInput
@@ -22,6 +23,9 @@ from .interpreter import SheetOutputGenerator, SheetInterpreter
 
 import os
 import shutil
+
+MODEL_INPUT_FILES = settings.MEDIA_ROOT + "/models/input/"
+MODEL_OUTPUT_FILES = settings.MEDIA_ROOT +"/models/output/"
 
 @login_required(login_url="simulator:login")
 def index(request):
@@ -55,13 +59,6 @@ def new(request):
 
     form = SimulationForm()
     return render(request, 'dashboard/new.html', {"simulation_form": form})
-
-@login_required(login_url="simulator:login")
-def detail(request, id):
-    simulation = get_object_or_404(Simulation, id=id)
-    return render(request, "dashboard/detail.html", {
-        "simulation": simulation
-    })
 
 @login_required(login_url="simulator:login")
 def edit(request, id):
@@ -106,19 +103,17 @@ def delete(request, id):
 def generateCSV(request, id):
     simulation = get_object_or_404(Simulation, id=id) 
 
-    model_input_files = os.getcwd() + "/simulator/input/"
-    model_output_files = os.getcwd()+"/simulator/output/"
     input_files = os.getcwd()+ "/media/"+simulation.getInputFolder()+"/"
     result_path = settings.MEDIA_ROOT+ "/outputs/simulation_{}/".format(simulation.id)
 
     # Copy /operations in media/input/simulation_id to take into account default operations
-    for model_file in os.listdir(model_input_files):
-        src = model_input_files + model_file
+    for model_file in os.listdir(MODEL_INPUT_FILES):
+        src = MODEL_INPUT_FILES + model_file
         dst = input_files + model_file
         shutil.copyfile(src, dst)
 
     # Generate output files
-    output = SheetOutputGenerator(input_files, model_output_files)
+    output = SheetOutputGenerator(input_files, MODEL_OUTPUT_FILES)
     zip_path = output.generate(result_path, "simulation")
     
     # Zip all output file and serves to download
@@ -132,28 +127,41 @@ def generateCSV(request, id):
     return response
 
 # Add Questions/Constants page
+def index_co(request):
+    return render(request, 'co/index.html', {
+        "models": os.listdir(MODEL_INPUT_FILES)
+    })
+
 @login_required(login_url="simulator:login")
 def new_co(request):
     if request.method == "POST":
         # Save file uploaded
         files = request.FILES.getlist('files')
         for f in files:
-            default_storage.save('tmp/'+str(f), ContentFile(f.read()))
-
-        # Merge files datas in operations/constant sheets
-        new_main_files = SheetInterpreter(settings.MEDIA_ROOT+"tmp/")
-        main_files = SheetInterpreter(os.getcwd()+ "/simulator/input/")
-
-        main_files.merge(new_main_files)
-
-        # Supprimer les fichiers uploadés
-        for f in files:
-            os.remove(settings.MEDIA_ROOT+'tmp/'+str(f))
+            default_storage.save(MODEL_INPUT_FILES+str(f), ContentFile(f.read()))
         
         messages.success(request, "The new operations/constants has been register !")
-        return redirect("simulator:index")
+        return redirect("simulator:index_co")
         
     return render(request, 'co/new.html')
+
+def download_co(request, name):
+    path = MODEL_INPUT_FILES+name
+    if os.path.exists(path):
+        with open(path, 'rb') as fh:
+            response = HttpResponse(fh.read(), content_type="application/vnd.ms-excel")
+            response['Content-Disposition'] = 'inline; filename=' + os.path.basename(path)
+            return response
+    raise Http404
+   
+def delete_co(request, name):
+    path = MODEL_INPUT_FILES+name
+    if os.path.exists(path):
+        os.remove(path)
+        return redirect('simulator:index_co')
+    raise Http404
+   
+
 
 # User Pages
 def register_request(request):

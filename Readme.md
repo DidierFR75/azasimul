@@ -48,5 +48,33 @@ $ make deploy
 
 ### Input file format
 
+## Models
 
-### Output file format
+Tous les models sont stocker dans web/media/models et sont téléchargeable via l'interface web sur http://localhost:8000/new_co
+
+### Model Input file format
+
+These templates define the default constants and operations for a simulation.
+If the specification files already have one of these operations, then it will be ignored and calculated as defined by the user.
+
+The constants have the following format :
+
+| Constant Category | Constant name | Value  | Unit  |
+| ----------------- | ------------- |:------:| ----- |
+| Dimensions        | Length        |  9.1   | cm    |
+
+The operations have the following format:
+
+| Composition name  | Operation name                   | Operation definition                                                 | Unit  |
+| ----------------- | -------------------------------- |:--------------------------------------------------------------------:| ----- |
+| Cell              | Nominal Capacity                 | { Weight } * [Energy Density (gravimetric)]                          | Wh    |
+| BatteryPack       | Width                            | [Cell Quantity]*[Casing.Cell interspace]*[Cell.Width]+[Casing.Width] | mm    |
+| BatteryPack       | Volume Overhead (Packs vs Cells) | {Cell.Energy density (volumetric)}/{Energy density (volumetric)}-1   |       |
+
+Variables are defined by [name] and represent a specification to be provided by the user, [Composition_name.name] represents a variable present in Composition_name.
+
+Functions are defined by {name} and represent a previously defined function in the current composition, {Composition_name.name} represents a function defined in Composition_name.
+
+### Model Output file format
+
+To define a value to display in the model, you just have to add a value such as [Composition_name/Function_name.name] in a cell and it will be automatically replaced by the system if it exists.

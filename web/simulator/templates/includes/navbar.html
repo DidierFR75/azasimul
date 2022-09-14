@@ -13,8 +13,12 @@
               <a href="{% url 'simulator:new' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Create</a>
           </div>
         </li>
-        <li class="nav-item">
-          <a class="nav-link" href="{% url 'simulator:new_co' %}">Add Constants or Operations</a>
+        <li class="nav-item dropdown">
+          <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Models</a>
+          <div class="dropdown-menu">
+              <a href="{% url 'simulator:index_co' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> List</a>
+              <a href="{% url 'simulator:new_co' %}" class="dropdown-item"><i class="fa-solid fa-download"></i> Add</a>
+          </div>
         </li>
         <li class="nav-item">
           <a class="nav-link" href="{% url 'simulator:logout' %}">Logout</a>
