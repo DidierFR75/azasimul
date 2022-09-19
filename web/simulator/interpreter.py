@@ -307,7 +307,7 @@ class InputAnalyzer:
         return next(result, None)
     
     def getSummaryByName(self, name):
-        result = iter([item for item in list(self.summary.values())[0] if item["constant_name"].lower() == name.lower()])
+        result = iter([value for key, value in self.summary.items() if key.lower() == name.lower()])
         return next(result, None)
 
     def getOperationByName(self, name):
@@ -366,7 +366,10 @@ class SheetTree:
                         continue
                 
                     if analyzer.isSummarySheet():
-                        self.root.analyzer = analyzer
+                        if not hasattr(self.root, "analyzer"):
+                            self.root.analyzer = analyzer
+                        else:
+                            self.root.analyzer.summary = {**self.root.analyzer.summary, **analyzer.summary}
                         continue
 
                     if analyzer.metadatas == {}:
@@ -450,6 +453,8 @@ class SheetInterpreter:
         if origin_wks is not None:
             
             for operation in operations:
+                if operation["operation"] is None:
+                    continue
                 matches = re.finditer(expression_fcn, operation["operation"])
 
                 # Replace first all vars [] by value
@@ -518,6 +523,8 @@ class SheetInterpreter:
                 wks = find(self.tree.root, lambda node: node.name.lower() == operation_category.lower())
                 if wks is not None:
                     for operation in operations:
+                        if operation["operation"] is None:
+                            continue
                         try:
                             operation["operation"] = eval(operation["operation"])
                             wks.analyzer.addSpecification(operation["operation_name"], operation["operation"], operation["unit"], "CONST")
@@ -575,7 +582,7 @@ class OutputAnalyzer:
                                 if node.analyzer.isSummarySheet():
                                     val = node.analyzer.getSummaryByName(attr[1])
                                 
-                                cell.value = val["value"] if "value" in val and val["value"] is not None else ""
+                                cell.value = val if val != {} else ""
 
     def save(self, path):
         self.wb.save(path)

@@ -22,13 +22,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-7_n1$@y!6*t9kxq6yt4buuubik0zhcjp49wlf93t2a*mc5gdfm'
+SECRET_KEY = 'VnZ9o79pyrl@2XWNg%BGzV0yMGkT9AENFG2qK&yYXXzI2wBr0q'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = ["*"] # Not safe for production !!!
-
 
 # Application definition
 
@@ -57,6 +56,13 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'azasimul.urls'
+
+## Production variables
+
+#CSRF_COOKIE_SECURE = True
+#SESSION_COOKIE_SECURE = True
+#SECURE_SSL_REDIRECT = True
+
 
 TEMPLATES = [
     {
