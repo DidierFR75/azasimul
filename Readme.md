@@ -83,7 +83,15 @@ Variables are defined by [name] and represent a specification to be provided by 
 
 Functions are defined by {name} and represent a previously defined function in the current composition, {Composition_name.name} represents a function defined in Composition_name.
 
-Les fonctions internes à excel doivent être préciser dans le model Output directement, généralement choisi pour les valeurs Date
+The **filters** have the following format:
+
+Nous pouvons également ajouter des filtres aux paramètres de fonction nécessitant une transformation :
+
+| Filter unit | Filter name  | Filter function               |
+| ------------| ------------ |:-----------------------------:|
+| date        | Year         | Show the year of date         |
+| date        | Month        | Show the month of date        |
+| date        | Day          | Show the day of date          |
 
 ### Output Model
 

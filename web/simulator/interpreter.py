@@ -13,6 +13,8 @@ from statistics import mean
 from anytree import Node, RenderTree, find, Resolver, PostOrderIter
 import pathlib
 import zipfile
+import math
+import datetime
 
 class InputAnalyzer:
 
@@ -36,7 +38,7 @@ class InputAnalyzer:
         self.metadatas = {}
         self.operations = {}
         self.constants = {}
-        self.summary = {}
+        self.summary = []
 
     # Carefull _getValuesBySpecificiation could return bad values for % as exemple
     # Get external parameters
@@ -149,15 +151,9 @@ class InputAnalyzer:
         return result
 
     def _generateSummary(self):
-        result = []
         for composition in self.ws["A"]:
             if composition.value is not None and self.ws.cell(row=composition.row, column=composition.column+1).value is not None:
-                result.append({
-                    "summary_name": composition.value,
-                    "summary_value": self.ws.cell(row=composition.row, column=composition.column+1).value,
-                    "unit": self.ws.cell(row=composition.row, column=composition.column+2).value
-                })
-        return result
+                self.addSummary(composition.value, self.ws.cell(row=composition.row, column=composition.column+1).value, self.ws.cell(row=composition.row, column=composition.column+2).value)
 
     def _generateOperations(self):
         """
@@ -266,7 +262,7 @@ class InputAnalyzer:
             return True
 
         if self.isSummarySheet():
-            self.summary = self._generateSummary()
+            self._generateSummary()
             return True
 
         # Get all elements in worksheet
@@ -298,11 +294,21 @@ class InputAnalyzer:
         self.specifications.append({
             "column": next_free_column,
             "specification_name": specifcation_name,
-            "values": [value] * len(self.points), # 
+            "values": [value] * len(self.points), 
             "unit": unit,
             "interpolation": interpolation
         })
     
+    def addSummary(self, summary_name, value, unit):
+        if self.getSummaryByName(summary_name) is not None:
+            return None
+
+        self.summary.append({
+            "summary_name": summary_name,
+            "summary_value": value,
+            "unit": unit
+        })
+
     # Access Functions
 
     def getSpecificationByName(self, name):
@@ -408,6 +414,13 @@ class SheetTree:
                     element[2].parent = liste[i[0]][2]
 
 class SheetInterpreter:
+
+    FILTERS_DISPATCH = {"date" : {
+            "year" : lambda x: x.year,
+            "month": lambda x: x.month,
+            "day": lambda x: x.day
+    }}
+
     def __init__(self, folder) -> None:
         self.tree = SheetTree(folder)
         self.tree.mapSheetToTree()
@@ -423,6 +436,15 @@ class SheetInterpreter:
                     return next((operation for operation in operations if operation["operation_name"].lower() == operation_name.lower()), None) 
         return None
 
+    def convertFilter(self, value, unit, filter):
+        """
+        Convert value by it filter
+        Ex : 01/01/2022|year = 2022
+        """
+        if unit.lower() in self.FILTERS_DISPATCH and filter.lower() in self.FILTERS_DISPATCH[unit]:
+            return self.FILTERS_DISPATCH[unit.lower()][filter.lower()](value)
+        return value
+
     def replaceVarByValue(self, word, node):
         """
         Replace Word by his Variable Value in the according worksheet
@@ -434,12 +456,17 @@ class SheetInterpreter:
         if len(attr) == 2:
             if find(self.tree.root, lambda node: node.name.lower() == attr[0].lower()) is None:
                 raise Exception("The sheet "+ attr[0]+ " doesn't map in the tree...")
-            correct_word = attr[1]
 
         if node.analyzer.isSummarySheet():
-            summary = node.analyzer.getSummaryByName(correct_word)
-            if summary is not None:
-                return summary["summary_value"]   
+            cw = attr[1].split('|')
+
+            summary = node.analyzer.getSummaryByName(cw[0])
+
+            if summary is not None and summary != {}:
+                if len(cw) == 2:
+                    return self.convertFilter(summary["summary_value"], summary["unit"], cw[1])
+                    
+                return summary["summary_value"]
             return None
 
         if node.analyzer.isSpecificationSheet():
@@ -466,14 +493,13 @@ class SheetInterpreter:
         Replace all {} by [] while it's present in string of all operations 
         """
         expression_fcn = '\{[\(\) \.a-zA-Z0-9]+\}'
-        expression_var = '\[[ \(\)a-zA-Z0-9\.]+\]'
+        expression_var = '\[[ \(\)\|a-zA-Z0-9\.]+\]'
 
         if operation_category is None or operations is None:
             raise Exception('ReplaceFcnByVar needs operation_category and operations')
         
         origin_wks = find(self.tree.root, lambda node: node.name.lower() == operation_category.lower())
         if origin_wks is not None:
-            
             for operation in operations:
                 if operation["operation"] is None:
                     continue
@@ -482,7 +508,7 @@ class SheetInterpreter:
 
                 # Replace first all vars [] by value
                 for m in re.finditer(expression_var, operation["operation"]):
-                    operation["operation"] = operation["operation"].replace(m.group(0), str(self.replaceVarByValue(m.group(0), origin_wks)))    
+                    operation["operation"] = operation["operation"].replace(m.group(0), str(self.replaceVarByValue(m.group(0), origin_wks)))
 
                 # Replace all fcn {} by value
                 while matches is not None:
@@ -548,13 +574,15 @@ class SheetInterpreter:
                     for operation in operations:
                         if operation["operation"] is None:
                             continue
-                        raise Exception(operation)
                         try:
                             # Attention si l'user met rm -rf * par exemple !!
-                            operation["operation"] = eval(operation["operation"], {'__builtins__': None})
-                            wks.analyzer.addSpecification(operation["operation_name"], operation["operation"], operation["unit"], "CONST")
+                            operation["operation"] = eval(operation["operation"])
+                            if wks.analyzer.isSummarySheet():
+                                wks.analyzer.addSummary(operation["operation_name"], operation["operation"], operation["unit"])
+                            if wks.analyzer.isSpecificationSheet():
+                                wks.analyzer.addSpecification(operation["operation_name"], operation["operation"], operation["unit"], "CONST")
                         except:
-                            pass
+                            pass                        
 
 class OutputAnalyzer:
 
