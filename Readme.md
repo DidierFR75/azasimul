@@ -83,6 +83,8 @@ Variables are defined by [name] and represent a specification to be provided by 
 
 Functions are defined by {name} and represent a previously defined function in the current composition, {Composition_name.name} represents a function defined in Composition_name.
 
+Les fonctions internes à excel doivent être préciser dans le model Output directement, généralement choisi pour les valeurs Date
+
 ### Output Model
 
 To define a value to display in the model, you just have to add a value such as [Composition_name/Function_name.name] in a cell and it will be automatically replaced by the system if it exists.

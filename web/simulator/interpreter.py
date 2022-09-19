@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import scipy as sp
 from scipy import interpolate
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pycel import ExcelCompiler
 from dateutil.relativedelta import relativedelta
 import re
@@ -149,8 +149,15 @@ class InputAnalyzer:
         return result
 
     def _generateSummary(self):
-        return {composition.value: self.ws.cell(row=composition.row, column=composition.column+1).value 
-            for composition in self.ws["A"] if composition.value is not None and self.ws.cell(row=composition.row, column=composition.column+1).value is not None}
+        result = []
+        for composition in self.ws["A"]:
+            if composition.value is not None and self.ws.cell(row=composition.row, column=composition.column+1).value is not None:
+                result.append({
+                    "summary_name": composition.value,
+                    "summary_value": self.ws.cell(row=composition.row, column=composition.column+1).value,
+                    "unit": self.ws.cell(row=composition.row, column=composition.column+2).value
+                })
+        return result
 
     def _generateOperations(self):
         """
@@ -307,7 +314,7 @@ class InputAnalyzer:
         return next(result, None)
     
     def getSummaryByName(self, name):
-        result = iter([value for key, value in self.summary.items() if key.lower() == name.lower()])
+        result = iter([item for item in self.summary if item["summary_name"].lower() == name.lower()])
         return next(result, None)
 
     def getOperationByName(self, name):
@@ -369,7 +376,15 @@ class SheetTree:
                         if not hasattr(self.root, "analyzer"):
                             self.root.analyzer = analyzer
                         else:
-                            self.root.analyzer.summary = {**self.root.analyzer.summary, **analyzer.summary}
+                            # Delete summary value with same key that root_summary
+                            for root_summary in self.root.analyzer.summary:
+                                for summary in analyzer.summary:
+                                    if root_summary["summary_name"].lower() == summary["summary_name"].lower():
+                                        del summary
+                            # Merge summaries values
+                            for summary in analyzer.summary:
+                                self.root.analyzer.summary.append(summary)
+                                                            
                         continue
 
                     if analyzer.metadatas == {}:
@@ -526,7 +541,8 @@ class SheetInterpreter:
                         if operation["operation"] is None:
                             continue
                         try:
-                            operation["operation"] = eval(operation["operation"])
+                            # Attention si l'user met rm -rf * par exemple !!
+                            operation["operation"] = eval(operation["operation"], {'__builtins__': None})
                             wks.analyzer.addSpecification(operation["operation_name"], operation["operation"], operation["unit"], "CONST")
                         except:
                             pass
@@ -581,8 +597,9 @@ class OutputAnalyzer:
                                 
                                 if node.analyzer.isSummarySheet():
                                     val = node.analyzer.getSummaryByName(attr[1])
+                                    val = val["summary_value"] if val is not None else None
                                 
-                                cell.value = val if val != {} else ""
+                                cell.value = val if val != {} and val is not None else ""
 
     def save(self, path):
         self.wb.save(path)
