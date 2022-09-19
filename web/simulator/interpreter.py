@@ -291,7 +291,6 @@ class InputAnalyzer:
         """
 
         if self.getSpecificationByName(specifcation_name) is not None:
-            print(specifcation_name)
             return None
 
         next_free_column = self.specifications[-1]["column"]+1
@@ -437,22 +436,30 @@ class SheetInterpreter:
                 raise Exception("The sheet "+ attr[0]+ " doesn't map in the tree...")
             correct_word = attr[1]
 
-        spec = node.analyzer.getSpecificationByName(correct_word)
+        if node.analyzer.isSummarySheet():
+            summary = node.analyzer.getSummaryByName(correct_word)
+            if summary is not None:
+                return summary["summary_value"]   
+            return None
+
+        if node.analyzer.isSpecificationSheet():
+            spec = node.analyzer.getSpecificationByName(correct_word)
+            
+            # if value not define, search in child and sum all of "word" values
+            if spec is None:
+                val = 0
+                for child in node.children:
+                    val = val + self.replaceVarByValue(word, child)
+                return val
+            
+            if spec is not None:
+                if spec["interpolation"] == "CONST":
+                    return spec["values"][0]
+                else:
+                    # make an average of each interpolate's values 
+                    return mean(spec["values"])
         
-        # if value not define, search in child and sum all of "word" values
-        if spec is None:
-            val = 0
-            for child in node.children:
-                val = val + self.replaceVarByValue(word, child)
-            return val
-        
-        if spec is not None:
-            if spec["interpolation"] == "CONST":
-                val = spec["values"][0]
-            else:
-                # make an average of each interpolate's values 
-                val = mean(spec["values"])
-        return val
+        return None
 
     def replaceFcnByVar(self, operations, operation_category):
         """
@@ -470,6 +477,7 @@ class SheetInterpreter:
             for operation in operations:
                 if operation["operation"] is None:
                     continue
+
                 matches = re.finditer(expression_fcn, operation["operation"])
 
                 # Replace first all vars [] by value
@@ -540,6 +548,7 @@ class SheetInterpreter:
                     for operation in operations:
                         if operation["operation"] is None:
                             continue
+                        raise Exception(operation)
                         try:
                             # Attention si l'user met rm -rf * par exemple !!
                             operation["operation"] = eval(operation["operation"], {'__builtins__': None})

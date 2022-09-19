@@ -48,17 +48,17 @@ def new(request):
                 # Temporary save file
                 path = settings.MEDIA_ROOT+"/tmp/"+str(f)
                 default_storage.save(path, ContentFile(f.read()))
-                # Check if file has specification format and if it has summary sheet
+                # Check if file has specification format or if it has summary sheet
                 fc = FileChecker(path)
                 fc.checkForSpecFormat()
                 os.remove(path)
 
                 # Add additionnal data in simulation
                 if fc.summary is not None:
-                    for key, value in fc.summary.items():
-                        key = key.lower().replace(" ", "_")
-                        if hasattr(simulation, key) and (getattr(simulation, key) is None or getattr(simulation, key) != value):
-                            setattr(simulation, key, value)
+                    for summary in fc.summary:
+                        summary["summary_name"] = summary["summary_name"].lower().replace(" ", "_")
+                        if hasattr(simulation, summary["summary_name"]) and (getattr(simulation, summary["summary_name"]) is None or getattr(simulation, summary["summary_name"]) != summary["summary_value"]):
+                            setattr(simulation, summary["summary_name"], summary["summary_value"])
 
                 if fc.non_accepted != []:
                     messages.error(request, "The following sheets was not take into account : "+ ','.join(fc.non_accepted))
