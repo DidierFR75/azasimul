@@ -97,7 +97,7 @@ We can also add filters to function parameters that require a transformation:
 
 To define a value to display in the model, you just have to add a value such as [Composition_name/Function_name.name] in a cell and it will be automatically replaced by the system if it exists.
 
-There are also operators to display certain types of data or in a certain shape.
+There are also operators to display certain types of data or in a certain shape. The style of the reference cell is automatically copied.
 
 | Keyword Operator | Keyword Operator Description              |
 | -----------------|:-----------------------------------------:|
