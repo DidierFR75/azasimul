@@ -319,6 +319,11 @@ class InputAnalyzer:
         result = iter([item for item in list(self.constants.values())[0] if item["constant_name"].lower() == name.lower()])
         return next(result, None)
     
+    def getConstantByCategoryAndName(self, category, name):
+        if category in self.constants:
+            result = iter([item for item in self.constants[category] if item["constant_name"].lower() == name.lower()])
+            return next(result, None)
+
     def getSummaryByName(self, name):
         result = iter([item for item in self.summary if item["summary_name"].lower() == name.lower()])
         return next(result, None)
@@ -336,7 +341,6 @@ class SheetTree:
 
         self.all_sheet = None
         self.operation_sheets = []
-        self.constant_sheets = []
 
     def analyzeAllSheet(self, path):
         """
@@ -375,7 +379,7 @@ class SheetTree:
                         continue
                 
                     if analyzer.isConstantSheet():
-                        self.constant_sheets.append(analyzer)
+                        Node(sheet_name, analyzer=analyzer, parent=self.root)
                         continue
                 
                     if analyzer.isSummarySheet():
@@ -648,8 +652,9 @@ class OutputAnalyzer:
                                             val = mean(data["values"])
                                 
                                 if node.analyzer.isConstantSheet():
-                                    data = node.analyzer.getConstantByName(attr[1])
-                                    val = data
+                                    if len(attr) > 2:
+                                        data = node.analyzer.getConstantByCategoryAndName(attr[1], attr[2])
+                                        val = data["value"]
                                 
                                 if node.analyzer.isSummarySheet():
                                     data = node.analyzer.getSummaryByName(attr[1])
@@ -667,7 +672,6 @@ class OutputAnalyzer:
                                         self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
 
                                 cell.value = val if val != {} and val is not None else ""
-
 
     def save(self, path):
         self.wb.save(path)
