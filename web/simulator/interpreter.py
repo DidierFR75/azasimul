@@ -15,6 +15,7 @@ import pathlib
 import zipfile
 import math
 import datetime
+from copy import copy
 
 class InputAnalyzer:
 
@@ -493,7 +494,7 @@ class SheetInterpreter:
         Replace all {} by [] while it's present in string of all operations 
         """
         expression_fcn = '\{[\(\) \.a-zA-Z0-9]+\}'
-        expression_var = '\[[ \(\)\|a-zA-Z0-9\.]+\]'
+        expression_var = '\[[ \(\)\|\+a-zA-Z0-9\.]+\]'
 
         if operation_category is None or operations is None:
             raise Exception('ReplaceFcnByVar needs operation_category and operations')
@@ -586,7 +587,8 @@ class SheetInterpreter:
 
 class OutputAnalyzer:
 
-    EXPRESSION = '\[[ \(\)a-zA-Z0-9\.]+\]' # expression of a var in output's cell
+    EXPRESSION = '\[[ \(\)\|\+a-zA-Z0-9\.]+\]' # expression of a var in output's cell
+    FOR_EXPRESSION = "FOR:"
 
     def __init__(self, wb, sheet_name, path, tree) -> None:
         self.evaluator = ExcelCompiler(filename=path)
@@ -595,11 +597,24 @@ class OutputAnalyzer:
         self.ws = self.wb[sheet_name]
         self.tree = tree
 
+    def copyCellStyle(self, cell, new_cell):
+        """
+        Return new_cell with the style of cell
+        """
+        if cell.has_style:
+            new_cell.font = copy(cell.font)
+            new_cell.border = copy(cell.border)
+            new_cell.fill = copy(cell.fill)
+            new_cell.number_format = copy(cell.number_format)
+            new_cell.protection = copy(cell.protection)
+            new_cell.alignment = copy(cell.alignment)
+        return new_cell
+
     def isInterpretable(self, value):
         if value is None or not isinstance(value, str) or value == "" or value == " " or value == "$":
             return False
 
-        if re.search(value, self.EXPRESSION):
+        if re.search(value, self.EXPRESSION) or value.startswith(self.FOR_EXPRESSION):
             return True
             
         return False
@@ -609,8 +624,10 @@ class OutputAnalyzer:
         Find and replace all annotate's values by their specification's value
         """
         for row in self.ws:
+            for_expression = False
             for cell in row:
-                if self.isInterpretable(cell.value):
+                # add new row if not already did
+                if self.isInterpretable(cell.value):                        
                     matches = re.finditer(self.EXPRESSION, cell.value)
                     for match in matches:
                         m = match.group(0).replace("[", "").replace("]", "").strip()
@@ -619,24 +636,38 @@ class OutputAnalyzer:
                             node = find(self.tree.root, lambda node: node.name.lower() == attr[0].lower())
 
                             if node is not None:
+                                data = None
                                 val = {}
 
                                 if node.analyzer.isSpecificationSheet():
-                                    val = node.analyzer.getSpecificationByName(attr[1])
-                                    if val:
-                                        if val["interpolation"] == "CONST":
-                                            val = val["values"][0]
+                                    data = node.analyzer.getSpecificationByName(attr[1])
+                                    if data is not None:
+                                        if data["interpolation"] == "CONST":
+                                            val = data["values"][0]
                                         else:
-                                            val = mean(val["values"])
+                                            val = mean(data["values"])
                                 
                                 if node.analyzer.isConstantSheet():
-                                    val = node.analyzer.getConstantByName(attr[1])
+                                    data = node.analyzer.getConstantByName(attr[1])
+                                    val = data
                                 
                                 if node.analyzer.isSummarySheet():
-                                    val = node.analyzer.getSummaryByName(attr[1])
-                                    val = val["summary_value"] if val is not None else None
-                                
+                                    data = node.analyzer.getSummaryByName(attr[1])
+                                    val = data["summary_value"] if data is not None else None
+                                                      
+                                if cell.value.startswith(self.FOR_EXPRESSION) and data:
+                                    nb_points = len(node.analyzer.points)
+                                    if not for_expression:
+                                        for_expression = True
+                                        for i in range(1, nb_points+1):
+                                            self.ws.insert_rows(cell.row+i)
+
+                                    for i in range(1, nb_points+1):
+                                        self.ws.cell(row=cell.row+i, column=cell.column).value = data["values"][i-1]
+                                        self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
+
                                 cell.value = val if val != {} and val is not None else ""
+
 
     def save(self, path):
         self.wb.save(path)

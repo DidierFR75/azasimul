@@ -96,3 +96,5 @@ Nous pouvons également ajouter des filtres aux paramètres de fonction nécessi
 ### Output Model
 
 To define a value to display in the model, you just have to add a value such as [Composition_name/Function_name.name] in a cell and it will be automatically replaced by the system if it exists.
+
+Le mot clef for peut être ajouté afin d'afficher tous les points de la matrice de référence
