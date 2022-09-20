@@ -85,7 +85,7 @@ Functions are defined by {name} and represent a previously defined function in t
 
 The **filters** have the following format:
 
-Nous pouvons également ajouter des filtres aux paramètres de fonction nécessitant une transformation :
+We can also add filters to function parameters that require a transformation:
 
 | Filter unit | Filter name  | Filter function               |
 | ------------| ------------ |:-----------------------------:|
@@ -97,4 +97,9 @@ Nous pouvons également ajouter des filtres aux paramètres de fonction nécessi
 
 To define a value to display in the model, you just have to add a value such as [Composition_name/Function_name.name] in a cell and it will be automatically replaced by the system if it exists.
 
-Le mot clef for peut être ajouté afin d'afficher tous les points de la matrice de référence
+There are also operators to display certain types of data or in a certain shape.
+
+| Keyword Operator | Keyword Operator Description              |
+| -----------------|:-----------------------------------------:|
+| FOR:             | Insert all data matrix in each row below  |
+| BRANDNAME:       | Show data which belong to BRANDNAME       |
