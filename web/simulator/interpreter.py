@@ -12,7 +12,7 @@ from pycel import ExcelCompiler
 from dateutil.relativedelta import relativedelta
 import re
 from statistics import mean
-from anytree import Node, RenderTree, find, Resolver, PostOrderIter
+from anytree import Node, RenderTree, find, Resolver, PostOrderIter, findall
 import pathlib
 import zipfile
 import math
@@ -324,8 +324,7 @@ class InputAnalyzer:
     
     def getConstantByCategoryAndName(self, category, name):
         if category in self.constants:
-            result = iter([item for item in self.constants[category] if item["constant_name"].lower() == name.lower()])
-            return next(result, None)
+            return next(iter([item for item in self.constants[category] if item["constant_name"].lower() == name.lower()]), None)
 
     def getSummaryByName(self, name):
         result = iter([item for item in self.summary if item["summary_name"].lower() == name.lower()])
@@ -448,7 +447,6 @@ class SheetInterpreter:
         self.tree = SheetTree(folder)
         self.tree.mapSheetToTree()
 
-    # Helper functions
     def findOperation(self, operation_category, operation_name):
         """
         Find an operation by it category and it operation_name 
@@ -468,16 +466,22 @@ class SheetInterpreter:
             return self.FILTERS_DISPATCH[unit.lower()][filter.lower()](value)
         return value
 
-    def replaceVarByValue(self, word, node):
+    def replaceVarByValue(self, word, node, operation_category):
         """
         Replace Word by his Variable Value in the according worksheet
         """
 
+        if word is None or node is None or operation_category is None:
+            raise Exception("replaceVarByValue need all paramaters fill...")
+
         correct_word = word.replace("[", "").replace("]", "")
         attr = correct_word.split('.')
-    
+
+        if len(attr) == 1:
+            attr.insert(0, operation_category)
+
         if len(attr) == 2:
-            if find(self.tree.root, lambda node: node.name.lower() == attr[0].lower()) is None:
+            if findall(self.tree.root, lambda node: node.name.lower() == attr[0].lower()) == ():
                 raise Exception("The sheet "+ attr[0]+ " doesn't map in the tree...")
 
         if node.analyzer.isSummarySheet():
@@ -499,7 +503,7 @@ class SheetInterpreter:
             if spec is None:
                 val = 0
                 for child in node.children:
-                    val = val + self.replaceVarByValue(word, child)
+                    val = val + self.replaceVarByValue(word, child, operation_category)
                 return val
             
             if spec is not None:
@@ -521,60 +525,62 @@ class SheetInterpreter:
         if operation_category is None or operations is None:
             raise Exception('ReplaceFcnByVar needs operation_category and operations')
         
-        origin_wks = find(self.tree.root, lambda node: node.name.lower() == operation_category.lower())
-        if origin_wks is not None:
-            for operation in operations:
-                if operation["operation"] is None:
-                    continue
+        origin_wkss = findall(self.tree.root, lambda node: node.name.lower() == operation_category.lower())
+        if origin_wkss != ():
+            for origin_wks in origin_wkss:
+                for operation in operations:
+                    if operation["operation"] is None:
+                        continue
 
-                matches = re.finditer(expression_fcn, operation["operation"])
+                    matches = re.finditer(expression_fcn, operation["operation"])
 
-                # Replace first all vars [] by value
-                for m in re.finditer(expression_var, operation["operation"]):
-                    operation["operation"] = operation["operation"].replace(m.group(0), str(self.replaceVarByValue(m.group(0), origin_wks)))
+                    # Replace first all vars [] by value
+                    for m in re.finditer(expression_var, operation["operation"]):
+                        operation["operation"] = operation["operation"].replace(m.group(0), str(self.replaceVarByValue(m.group(0), origin_wks, operation_category)))
 
-                # Replace all fcn {} by value
-                while matches is not None:
-                    for match in matches:
-                        according_op = None
-                        wks = None
+                    # Replace all fcn {} by value
+                    while matches is not None:
+                        for match in matches:
+                            according_op = None
+                            wks = None
 
-                        fcn_name = match.group(0).replace("{", "").replace("}", "").strip()
-                        attr = fcn_name.split('.')
+                            fcn_name = match.group(0).replace("{", "").replace("}", "").strip()
+                            attr = fcn_name.split('.')
 
-                        # if operation exist in list operation, add the value of it in it
-                        if len(attr) == 1:
-                            according_op = next((op for op in operations if op["operation_name"] == fcn_name), None)
-                            if according_op is not None:
-                                wks = find(self.tree.root, lambda node: node.name.lower() == operation_category.lower())
-                            
-                        # Check if fcn_name is a child or parent function
-                        if len(attr) == 2:
-                            for analyzer in self.tree.operation_sheets:
-                                according_op = self.findOperation(attr[0], attr[1])
-                            
-                            if according_op is not None:
-                                wks = find(self.tree.root, lambda node: node.name.lower() == attr[0].lower())                        
-                            
-                        if according_op is not None and wks is not None:                            
-                            # Transform all {} in children by interpretable {}
-                            for m in re.finditer(expression_fcn, according_op["operation"]):
-                                rpl = m.group(0).replace("{", "").replace("}", "").strip()
+                            # if operation exist in list operation, add the value of it in it
+                            if len(attr) == 1:
+                                according_op = next((op for op in operations if op["operation_name"] == fcn_name), None)
+                                if according_op is not None:
+                                    wkss = findall(self.tree.root, lambda node: node.name.lower() == operation_category.lower())
+                                
+                            # Check if fcn_name is a child or parent function
+                            if len(attr) == 2:
+                                for analyzer in self.tree.operation_sheets:
+                                    according_op = self.findOperation(attr[0], attr[1])
+                                
+                                if according_op is not None:
+                                    wkss = findall(self.tree.root, lambda node: node.name.lower() == attr[0].lower())                        
+                                
+                            if according_op is not None and wkss != ():
+                                for wks in wkss:                            
+                                # Transform all {} in children by interpretable {}
+                                    for m in re.finditer(expression_fcn, according_op["operation"]):
+                                        rpl = m.group(0).replace("{", "").replace("}", "").strip()
 
-                                if len(rpl.split(".")) == 1:
-                                    according_op["operation"] = according_op["operation"].replace(m.group(0), "{"+attr[0]+"."+rpl+"}")
+                                        if len(rpl.split(".")) == 1:
+                                            according_op["operation"] = according_op["operation"].replace(m.group(0), "{"+attr[0]+"."+rpl+"}")
 
-                            # Transform all [] by value to avoid legacy interpretation problems
-                            for m in re.finditer(expression_var, according_op["operation"]):
-                                according_op["operation"] = according_op["operation"].replace(m.group(0), str(self.replaceVarByValue(m.group(0), wks)))
+                                    # Transform all [] by value to avoid legacy interpretation problems
+                                    for m in re.finditer(expression_var, according_op["operation"]):
+                                        according_op["operation"] = according_op["operation"].replace(m.group(0), str(self.replaceVarByValue(m.group(0), wks)))
 
-                            operation["operation"] = operation["operation"].replace(match.group(0), "("+according_op["operation"]+")")
-                            
-                    if re.search(expression_fcn, operation["operation"]) is not None:
-                        matches = re.finditer(expression_fcn, operation["operation"])
-                    else:
-                        matches = None
-                
+                                    operation["operation"] = operation["operation"].replace(match.group(0), "("+according_op["operation"]+")")
+                                
+                        if re.search(expression_fcn, operation["operation"]) is not None:
+                            matches = re.finditer(expression_fcn, operation["operation"])
+                        else:
+                            matches = None
+                    
         return operations
 
     def evaluate(self):
@@ -585,27 +591,28 @@ class SheetInterpreter:
         # Search all {} operations and replace by []
         for o_wks in self.tree.operation_sheets:
             for operation_category, operations in o_wks.operations.items():
-                wks = find(self.tree.root, lambda node: node.name.lower() == operation_category.lower())
+                wks = findall(self.tree.root, lambda node: node.name.lower() == operation_category.lower())
                 if wks is not None:
                     operations = self.replaceFcnByVar(operations, operation_category)
         
         # Eval all operations
         for o_wks in self.tree.operation_sheets:
             for operation_category, operations in o_wks.operations.items():
-                wks = find(self.tree.root, lambda node: node.name.lower() == operation_category.lower())
-                if wks is not None:
-                    for operation in operations:
-                        if operation["operation"] is None:
-                            continue
-                        try:
-                            # Attention si l'user met rm -rf * par exemple !!
-                            operation["operation"] = eval(operation["operation"])
-                            if wks.analyzer.isSummarySheet():
-                                wks.analyzer.addSummary(operation["operation_name"], operation["operation"], operation["unit"])
-                            if wks.analyzer.isSpecificationSheet():
-                                wks.analyzer.addSpecification(operation["operation_name"], operation["operation"], operation["unit"], "CONST")
-                        except:
-                            pass                        
+                wkss = findall(self.tree.root, lambda node: node.name.lower() == operation_category.lower())
+                if wkss != ():
+                    for wks in wkss:
+                        for operation in operations:
+                            if operation["operation"] is None:
+                                continue
+                            try:
+                                # Attention si l'user met rm -rf * par exemple !!
+                                operation["operation"] = eval(operation["operation"])
+                                if wks.analyzer.isSummarySheet():
+                                    wks.analyzer.addSummary(operation["operation_name"], operation["operation"], operation["unit"])
+                                if wks.analyzer.isSpecificationSheet():
+                                    wks.analyzer.addSpecification(operation["operation_name"], operation["operation"], operation["unit"], "CONST")
+                            except:
+                                pass                        
 
 class OutputAnalyzer:
 
@@ -654,7 +661,7 @@ class OutputAnalyzer:
         
         # Check if value start with one value of self.FUNCTION
         valid_func = next(iter([True for key_func, value_func in self.FUNCTION.items() if value.startswith(value_func)]), False)
-
+        
         if re.search(value, self.EXPRESSION) or valid_func:
             return True
             
@@ -683,7 +690,10 @@ class OutputAnalyzer:
                             if len(filter) > 1:
                                 node = find(self.tree.root, lambda node: node.name.lower() == attr[0].lower() and node.category.lower() == filter[1].lower())
                             else:
-                                node = find(self.tree.root, lambda node: node.name.lower() == attr[0].lower())
+                                try:
+                                    node = find(self.tree.root, lambda node: node.name.lower() == attr[0].lower())
+                                except:
+                                    raise Exception("Try to add category to : {}".format(str(attr)))
 
                             if node is not None:
                                 data = None
@@ -703,15 +713,14 @@ class OutputAnalyzer:
                                                 for_expression = True
                                                 for i in range(1, nb_points+1):
                                                     self.ws.insert_rows(cell.row+i)
-
                                             for i in range(1, nb_points+1):
                                                 self.ws.cell(row=cell.row+i, column=cell.column).value = data["values"][i-1]
                                                 self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
-
+                                            
                                 if node.analyzer.isConstantSheet():
                                     if len(attr) > 2:
                                         data = node.analyzer.getConstantByCategoryAndName(attr[1], attr[2])
-                                        val = data["value"]
+                                        val = data["value"] if data is not None else ""
                                 
                                 if node.analyzer.isSummarySheet():
                                     data = node.analyzer.getSummaryByName(attr[1])
