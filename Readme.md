@@ -99,7 +99,7 @@ To define a value to display in the model, you just have to add a value such as 
 
 There are also operators to display certain types of data or in a certain shape. The style of the reference cell is automatically copied.
 
-| Keyword Operator | Keyword Operator Description              |
-| -----------------|:-----------------------------------------:|
-| FOR:             | Insert all data matrix in each row below  |
-| BRANDNAME:       | Show data which belong to BRANDNAME       |
+| Keyword Operator | Keyword Operator Description                                                             |
+| -----------------|:----------------------------------------------------------------------------------------:|
+| FOR:             | Insert all data matrix in each row below                                                 |
+| CATEGORY:        | Show data which belong to CATEGORY, all category cell values becomes a keyword operator  |

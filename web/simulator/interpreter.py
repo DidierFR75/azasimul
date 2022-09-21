@@ -1,3 +1,5 @@
+from curses import keyname
+from unicodedata import category
 from openpyxl import Workbook, load_workbook
 from openpyxl.writer.excel import save_virtual_workbook
 import os
@@ -27,6 +29,7 @@ class InputAnalyzer:
     DATE_COL = "D"
     PRODUCT_NAME = "Product-Type"
     PRODUCT_PARENT = "SubType"
+    CATEGORY = "Category"
     DELIMITER_SHEET_UNFOLLOW = "_"
 
     def __init__(self, ws, sheet_name, path) -> None:
@@ -332,12 +335,18 @@ class InputAnalyzer:
         result = iter([item for item in self.operations if item["operation_name"].lower() == name.lower()])
         return next(result, None)                        
 
+    def getCategory(self):
+        if self.CATEGORY in self.metadatas:
+            return str(self.metadatas[self.CATEGORY])
+        return None
+
 class SheetTree:
     def __init__(self, path) -> None:
         self.path = path
         
         self.root = Node("root")
         self.root.name = "Summary"
+        self.root.categories = {}
 
         self.all_sheet = None
         self.operation_sheets = []
@@ -402,19 +411,28 @@ class SheetTree:
                     
                     # Get parent name if exist
                     parent_name = analyzer.metadatas[analyzer.PRODUCT_PARENT] if (analyzer.PRODUCT_PARENT in analyzer.metadatas) else None
+                        
+                    node = Node(analyzer.metadatas[analyzer.PRODUCT_NAME], analyzer=analyzer)
+                    
+                    # Get and add category to self.root.categories if exist
+                    category = analyzer.getCategory()
+                    if category is not None:
+                        self.root.categories[category.lower()] = category.upper()+":"
+                        node.category = category.lower()
                                                 
                     liste.append(
                         (parent_name,
                         analyzer.metadatas[analyzer.PRODUCT_NAME],
-                        Node(analyzer.metadatas[analyzer.PRODUCT_NAME], analyzer=analyzer))
-                    )
+                        node
+                    ))
         
         # Add parent for all nodes
         for element in liste:
+            # if no parent
             if element[0] is None:
                 element[2].parent = self.root
             else:
-                i = [i for i, v in enumerate(liste) if v[1] == element[0]]
+                i = [i for i, v in enumerate(liste) if v[1] == element[0] and element[2].category == v[2].category]
                 if i != []:
                     element[2].parent = liste[i[0]][2]
 
@@ -592,7 +610,13 @@ class SheetInterpreter:
 class OutputAnalyzer:
 
     EXPRESSION = '\[[ \(\)\|\+a-zA-Z0-9\.]+\]' # expression of a var in output's cell
-    FOR_EXPRESSION = "FOR:"
+    FUNCTION = {
+        "for": "FOR:",
+    }
+
+    FILTERS_DISPATCH = {
+        "category": {}
+    }
 
     def __init__(self, wb, sheet_name, path, tree) -> None:
         self.evaluator = ExcelCompiler(filename=path)
@@ -600,6 +624,16 @@ class OutputAnalyzer:
         self.wb = wb
         self.ws = self.wb[sheet_name]
         self.tree = tree
+        self.FILTERS_DISPATCH["category"] = {item: lambda x: x for item in self.tree.root.categories}
+
+    def convertFilter(self, value, unit, filter):
+        """
+        Convert value by it filter
+        Ex : 01/01/2022|year = 2022
+        """
+        if unit.lower() in self.FILTERS_DISPATCH and filter.lower() in self.FILTERS_DISPATCH[unit]:
+            return self.FILTERS_DISPATCH[unit.lower()][filter.lower()](value)
+        return value
 
     def copyCellStyle(self, cell, new_cell):
         """
@@ -617,12 +651,18 @@ class OutputAnalyzer:
     def isInterpretable(self, value):
         if value is None or not isinstance(value, str) or value == "" or value == " " or value == "$":
             return False
+        
+        # Check if value start with one value of self.FUNCTION
+        valid_func = next(iter([True for key_func, value_func in self.FUNCTION.items() if value.startswith(value_func)]), False)
 
-        if re.search(value, self.EXPRESSION) or value.startswith(self.FOR_EXPRESSION):
+        if re.search(value, self.EXPRESSION) or valid_func:
             return True
             
         return False
 
+    def getSpecificationByCategoryAndName(self, category_name, name):
+        pass
+    
     def findAndReplaceAnnotateValues(self):
         """
         Find and replace all annotate's values by their specification's value
@@ -634,10 +674,16 @@ class OutputAnalyzer:
                 if self.isInterpretable(cell.value):                        
                     matches = re.finditer(self.EXPRESSION, cell.value)
                     for match in matches:
+                        node = None
                         m = match.group(0).replace("[", "").replace("]", "").strip()
                         attr = m.split(".")
                         if len(attr) > 1:
-                            node = find(self.tree.root, lambda node: node.name.lower() == attr[0].lower())
+                            filter = attr[1].split("|")
+                            attr[1] = filter[0]
+                            if len(filter) > 1:
+                                node = find(self.tree.root, lambda node: node.name.lower() == attr[0].lower() and node.category.lower() == filter[1].lower())
+                            else:
+                                node = find(self.tree.root, lambda node: node.name.lower() == attr[0].lower())
 
                             if node is not None:
                                 data = None
@@ -650,7 +696,18 @@ class OutputAnalyzer:
                                             val = data["values"][0]
                                         else:
                                             val = mean(data["values"])
-                                
+
+                                        if cell.value.startswith(self.FUNCTION["for"]):
+                                            nb_points = len(node.analyzer.points)
+                                            if not for_expression:
+                                                for_expression = True
+                                                for i in range(1, nb_points+1):
+                                                    self.ws.insert_rows(cell.row+i)
+
+                                            for i in range(1, nb_points+1):
+                                                self.ws.cell(row=cell.row+i, column=cell.column).value = data["values"][i-1]
+                                                self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
+
                                 if node.analyzer.isConstantSheet():
                                     if len(attr) > 2:
                                         data = node.analyzer.getConstantByCategoryAndName(attr[1], attr[2])
@@ -659,17 +716,6 @@ class OutputAnalyzer:
                                 if node.analyzer.isSummarySheet():
                                     data = node.analyzer.getSummaryByName(attr[1])
                                     val = data["summary_value"] if data is not None else None
-                                                      
-                                if cell.value.startswith(self.FOR_EXPRESSION) and data:
-                                    nb_points = len(node.analyzer.points)
-                                    if not for_expression:
-                                        for_expression = True
-                                        for i in range(1, nb_points+1):
-                                            self.ws.insert_rows(cell.row+i)
-
-                                    for i in range(1, nb_points+1):
-                                        self.ws.cell(row=cell.row+i, column=cell.column).value = data["values"][i-1]
-                                        self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
 
                                 cell.value = val if val != {} and val is not None else ""
 
