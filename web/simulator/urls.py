@@ -9,6 +9,7 @@ urlpatterns = [
     path('edit/<int:id>', views.edit, name='edit'),
     path("delete/<int:id>", views.delete, name="delete"),
     path("generate/<int:id>", views.generateCSV, name="csv"),
+    path("download/<int:id>", views.downloadData, name="downloadData"),
     # Constants/Operations pages
     path('index_co/<str:type>', views.index_co, name='index_co'),
     path('new_co/<str:type>', views.new_co, name='new_co'),

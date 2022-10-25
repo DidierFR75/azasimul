@@ -22,6 +22,7 @@ from .models import Simulation, SimulationInput
 from .interpreter import FileChecker, SheetOutputGenerator, SheetInterpreter
 
 import os
+import zipfile
 import shutil
 
 MODEL_INPUT_FILES = settings.MEDIA_ROOT + "/models/input/"
@@ -141,6 +142,21 @@ def generateCSV(request, id):
     # Generate output files
     output = SheetOutputGenerator(input_files, MODEL_OUTPUT_FILES)
     zip_path = output.generate(result_path, "simulation")
+    
+    # Zip all output file and serves to download
+    zip_file = open(zip_path, 'rb')
+    response = HttpResponse(zip_file, content_type='application/zip')
+    response['Content-Disposition'] = 'attachment; filename="simulation_result_'+simulation.project_name+'_'+simulation.created_at.strftime("%m/%d/%Y")+'"'
+
+    # Remove zip file after download
+    os.remove(zip_path)
+
+    return response
+
+def downloadData(request, id):
+    simulation = get_object_or_404(Simulation, id=id)
+    input_files = os.getcwd()+ "/media/"+simulation.getInputFolder()+"/"
+    zip_path = SheetOutputGenerator.createZip(input_files, "datas")
     
     # Zip all output file and serves to download
     zip_file = open(zip_path, 'rb')

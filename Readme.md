@@ -1,4 +1,4 @@
-# AzaSimul - Financial simulation
+# AzaSimul - Financial Simulation
 
 ## Demo
 
@@ -82,6 +82,8 @@ The **operations** have the following format:
 Variables are defined by [name] and represent a specification to be provided by the user, [Composition_name.name] represents a variable present in Composition_name.
 
 Functions are defined by {name} and represent a previously defined function in the current composition, {Composition_name.name} represents a function defined in Composition_name.
+
+If the variable is not defined in the Excel sheet then the algorithm retrieves the values of the children multiplied by the quantity of children. This quantity is defined in the parent sheet with the following nomenclature : CHILD Quantity (1 by default).
 
 The **filters** have the following format:
 

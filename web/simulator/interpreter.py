@@ -497,7 +497,7 @@ class SheetInterpreter:
             return None
 
         if node.analyzer.isSpecificationSheet():
-            spec = node.analyzer.getSpecificationByName(correct_word)
+            spec = node.analyzer.getSpecificationByName(attr[1])
             
             # if value not define, search in child and sum all of "word" values
             if spec is None:
@@ -572,7 +572,7 @@ class SheetInterpreter:
 
                                     # Transform all [] by value to avoid legacy interpretation problems
                                     for m in re.finditer(expression_var, according_op["operation"]):
-                                        according_op["operation"] = according_op["operation"].replace(m.group(0), str(self.replaceVarByValue(m.group(0), wks)))
+                                        according_op["operation"] = according_op["operation"].replace(m.group(0), str(self.replaceVarByValue(m.group(0), wks, operation_category)))
 
                                     operation["operation"] = operation["operation"].replace(match.group(0), "("+according_op["operation"]+")")
                                 
@@ -755,7 +755,8 @@ class SheetOutputGenerator:
             
         return result
 
-    def _createZip(self, to, name):
+    @staticmethod
+    def createZip(to, name):
         """
         Create zip of a folder and return name.zip path
         """
@@ -785,7 +786,7 @@ class SheetOutputGenerator:
                 analyzer.findAndReplaceAnnotateValues()
                 analyzer.save(folder+"simulation_"+str(count)+".xlsx")
 
-        return self._createZip(folder, name)
+        return SheetOutputGenerator.createZip(folder, name)
 
 class FileChecker:
     def __init__(self, path) -> None:

@@ -34,7 +34,8 @@
                                 Actions
                                 </a>
                                 <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
-                                    <a class="dropdown-item" href="{% url 'simulator:csv' simulation.id %}"><i class="fa fa-calculator"></i> Generate CSV</a>
+                                    <a class="dropdown-item" href="{% url 'simulator:csv' simulation.id %}"><i class="fa fa-calculator"></i> Produce Simulation Report</a>
+                                    <a class="dropdown-item" href="{% url 'simulator:downloadData' simulation.id %}"><i class="fa-solid fa-database"></i> Download Input Datas</a>
                                     <a class="dropdown-item" href="{% url 'simulator:edit' simulation.id %}"><i class="fa-solid fa-pen-to-square"></i> Edit</a>
                                     <a class="dropdown-item" href="{% url 'simulator:delete' simulation.id %}"><i class="fa-solid fa-trash"></i> Delete</a>
                                 </div>
