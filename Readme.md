@@ -55,7 +55,6 @@ $ make deploy
 You can put the essential information of the project in an excel sheet with the name: **summary**
 The system will consider that the first column corresponds to the name of an expected field and the following column will correspond to the value of this field.
 
-
 ## Models
 
 All models are stored in web/media/models and can be downloaded via the web interface at http://localhost:8000/new_co
