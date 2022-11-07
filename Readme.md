@@ -50,10 +50,25 @@ $ make deploy
 
 # Data importation
 
-## Specifications and Summary
+## Summary Datas
 
 You can put the essential information of the project in an excel sheet with the name: **summary**
 The system will consider that the first column corresponds to the name of an expected field and the following column will correspond to the value of this field.
+
+## Specifications Datas
+
+Metadatas :
+
+| Metadata     | Description                                       |
+| ------------ | ------------------------------------------------- |
+| Product-Type | Name of it node (have to same in other categories)|
+| SubType      | Parent node                                       | 
+| Category     | Type of component (AZA, LFP)                      |
+
+Matrix of datas :
+
+You only need to specify the point number, the data curve interpolation, the unit and one or more data in the column.
+For the line of data, you need to specify the the starting date (only once, it will be calculate automaticly by the algorithme according to the point number)
 
 ## Models
 
@@ -104,3 +119,14 @@ There are also operators to display certain types of data or in a certain shape.
 | -----------------|:----------------------------------------------------------------------------------------:|
 | FOR:             | Insert all data matrix in each row below                                                 |
 | CATEGORY:        | Show data which belong to CATEGORY, all category cell values becomes a keyword operator  |
+
+
+#### Unit Formatting System
+
+It is an automatic system of formatting values according to their unit.
+
+| Unit     | Unit Formatting Description                      |
+| ---------|:------------------------------------------------:|
+| date     | Format the date as Day/Month/Year                |
+| $/€/cost | Format the monney number as XXX XXX.XX           |
+| %        | Format any floating number with % unit as XX.XX% |

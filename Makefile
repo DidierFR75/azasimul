@@ -44,7 +44,7 @@ install: ## Init data's project
 	rm -rf data
 	rm -rf web/simulator/migrations
 	mkdir web/simulator/migrations
-	mkdir web/media/models
+	mkdir web/media/ && mkdir web/media/models
 	touch web/simulator/migrations/__init__.py
 	make
 	sleep 10
