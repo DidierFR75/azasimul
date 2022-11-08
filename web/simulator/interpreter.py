@@ -21,6 +21,8 @@ from copy import copy, deepcopy
 import copy
 from functools import wraps
 import time
+from dateutil.relativedelta import relativedelta
+
 
 class InputAnalyzer:
 
@@ -188,7 +190,7 @@ class InputAnalyzer:
                     tmp.append({
                         "operation_name": self.clean_string(self.ws["B"+str(x)].value),
                         "operation": self.evaluate(self.ws["C"+str(x)]),
-                        "unit": self.clean_string(self.ws["D"+str(x)].value)
+                        "unit": self.clean_string(self.ws["D"+str(x)].value) 
                     })
             
             result[fcn[1]] = tmp
@@ -309,7 +311,7 @@ class InputAnalyzer:
             "column": next_free_column,
             "specification_name": self.clean_string(specifcation_name),
             "values": [value] * len(self.points), 
-            "unit": unit,
+            "unit": unit if unit is not None else "",
             "interpolation": interpolation
         })
     
@@ -320,7 +322,7 @@ class InputAnalyzer:
         self.summary.append({
             "summary_name": self.clean_string(summary_name),
             "summary_value": value,
-            "unit": unit
+            "unit": unit if unit is not None else ""
         })
 
     # Access Functions
@@ -616,7 +618,6 @@ class SheetInterpreter:
             
         if nodes_according_to_operation_category != () and nodes_according_to_operation_category is not None:
             copy_operations = copy.deepcopy(list_operations)    
-            #print(dst, hex(id(copy_operations)), operation_category, copy_operations, nodes_according_to_operation_category, "\n")
             
             for index, op in enumerate(copy_operations):                            
                 if op["operation"] is None:
@@ -665,9 +666,7 @@ class SheetInterpreter:
                     for operation in operations:
                         try:
                             # Attention si l'user met rm -rf * par exemple !!
-                            operation["operation"] = round(eval(str(operation["operation"])), 4)
-                            print(operation)
-                            
+                            operation["operation"] = round(eval(str(operation["operation"])), 4)                            
                             if operation["node_category"].analyzer.isSummarySheet():
                                 operation["node_category"].analyzer.addSummary(operation["operation_name"], operation["operation"], operation["unit"])
                             if operation["node_category"].analyzer.isSpecificationSheet():
@@ -678,13 +677,26 @@ class SheetInterpreter:
 class OutputAnalyzer:
 
     EXPRESSION = '\[[ \_\(\)\|\-\+a-zA-Z0-9\.]+\]' # expression of a var in output's cell
+    
     FUNCTION = {
         "for": "FOR:",
+    }
+
+    FUNCTION_TRANSFORMER = {
+        'for': ["INDEX", "YEAR"]
     }
 
     FILTERS_DISPATCH = {
         "category": {}
     }
+
+    UNIT_FORMATS = {
+        "date" : lambda x: x.strftime('%Y-%m-%d'),
+        "$": lambda x: '{:,.2f}'.format(x),
+        "€": lambda x: '{:,.2f}'.format(x),
+        "cost": lambda x: '{:,.2f}'.format(x),
+        "%": lambda x: "{:.2%}".format(x)
+    }   
 
     def __init__(self, wb, sheet_name, path, interpreter) -> None:
         self.evaluator = ExcelCompiler(filename=path)
@@ -704,23 +716,38 @@ class OutputAnalyzer:
             return self.FILTERS_DISPATCH[unit.lower()][filter.lower()](value)
         return value
 
+    def formatByUnit(self, val, unit):
+        """
+        Format val according to his unit by UNIT_FORMATS function
+        """
+        if unit is not None and val != "" and unit != "" and unit in list(self.UNIT_FORMATS.keys()):
+            try:
+                return copy.deepcopy(self.UNIT_FORMATS[unit](val))
+            except Exception as e:
+                raise Exception("Unit problem : ", e, unit, val)
+        return val
+
     def copyCellStyle(self, cell, new_cell):
         """
         Return new_cell with the style of cell
         """
         if cell is not None and cell.has_style and new_cell is not None:
             try:
-                new_cell.font = copy(cell.font)
-                new_cell.border = copy(cell.border)
-                new_cell.fill = copy(cell.fill)
-                new_cell.number_format = copy(cell.number_format)
-                new_cell.protection = copy(cell.protection)
-                new_cell.alignment = copy(cell.alignment)
-            except:
-                pass
+                new_cell.font = copy.copy(cell.font)
+                new_cell.border = copy.copy(cell.border)
+                new_cell.fill = copy.copy(cell.fill)
+                new_cell.number_format = copy.copy(cell.number_format)
+                new_cell.protection = copy.copy(cell.protection)
+                new_cell.alignment = copy.copy(cell.alignment)
+            except Exception as e:
+                raise Exception(e)
+
         return new_cell
 
     def isInterpretable(self, value):
+        """
+        Check if it's an interpretable value and return true if it is else false
+        """
         if value is None or not isinstance(value, str) or value == "" or value == " " or value == "$":
             return False
         
@@ -746,6 +773,33 @@ class OutputAnalyzer:
             for cell in row:
                 # add new row if not already did
                 if self.isInterpretable(cell.value):
+                    
+                    # Check function transformers
+                    if isinstance(cell.value, str) and cell.value.startswith(self.FUNCTION["for"]):
+                        l = [item for item in self.FUNCTION_TRANSFORMER["for"] if cell.value.endswith(item)]
+                        if l != []:
+                            l = l[0]
+                            
+                            start = self.tree.root.analyzer.getSummaryByName("Start")["summary_value"]
+                            end = self.tree.root.analyzer.getSummaryByName("End")["summary_value"]
+                            delta = relativedelta(end, start)
+
+                            # Add date if YEAR else add index
+                            values = list(map(lambda x: start + relativedelta(years=x) if l == "YEAR" else x+1, [item for item in range(0, delta.years+1)]))
+                            unit = "date" if l == "YEAR" else None
+
+                            if not for_expression:
+                                for_expression = True
+                                for i in range(1, len(values)+1):
+                                    self.ws.insert_rows(cell.row+i)
+                            
+                            self.ws.cell(row=cell.row, column=cell.column).value = self.formatByUnit(values[0], unit)
+                            for i in range(1, len(values)):
+                                self.ws.cell(row=cell.row+i, column=cell.column).value = self.formatByUnit(values[i], unit)
+                                self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
+                            
+                            continue
+                        
                     matches = re.finditer(self.EXPRESSION, cell.value)
                     for match in matches:
                         node = None
@@ -774,13 +828,7 @@ class OutputAnalyzer:
 
                                 if node.analyzer.isSpecificationSheet():
                                     data = node.analyzer.getSpecificationByName(attr[1])
-                                    
-                                    # Search in all operations if exist
-                                    if data is None:
-                                        for o_wks in self.tree.operation_sheets:
-                                            for operation_category, operations in o_wks.operations.items():
-                                                wkss = findall(self.tree.root, lambda node: node.name.lower() == operation_category.lower())
-                                    
+                                                        
                                     if data is not None:
                                         if data["interpolation"] == "CONST":
                                             try:
@@ -792,27 +840,40 @@ class OutputAnalyzer:
                                                 val = mean(data["values"])
                                             except:
                                                 raise Exception("Can't do a mean of value for ", data)
-                                        if cell.value.startswith(self.FUNCTION["for"]):
-                                            nb_points = len(node.analyzer.points)
+
+                                        # Interprete FOR directive        
+                                        if cell.value.startswith(self.FUNCTION["for"]) and [item for item in self.FUNCTION_TRANSFORMER["for"] if cell.value.endswith(item)] == []:
+
+                                            start = self.tree.root.analyzer.getSummaryByName("Start")["summary_value"]
+                                            end = self.tree.root.analyzer.getSummaryByName("End")["summary_value"]
+                                            delta = relativedelta(end, start)
+                                            nb_points = delta.years
+
+                                            # if for not previously added and insert necessary row
                                             if not for_expression:
                                                 for_expression = True
                                                 for i in range(1, nb_points+1):
                                                     self.ws.insert_rows(cell.row+i)
-                                            for i in range(1, nb_points+1):
-                                                self.ws.cell(row=cell.row+i, column=cell.column).value = data["values"][i-1]
-                                                self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
                                             
+                                            # Add values to each cell
+                                            for i in range(1, nb_points+1):
+                                                self.ws.cell(row=cell.row+i, column=cell.column).value = self.formatByUnit(data["values"][i-1], data["unit"])
+                                                self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
+
                                 if node.analyzer.isConstantSheet():
                                     if len(attr) > 2:
                                         data = node.analyzer.getConstantByCategoryAndName(attr[1], attr[2])
-                                        val = data["value"] if data is not None else ""
-                                
+                                        val = data["value"] if data is not None else ""                    
+
                                 if node.analyzer.isSummarySheet():
                                     data = node.analyzer.getSummaryByName(attr[1])
                                     val = data["summary_value"] if data is not None else None
 
-                                cell.value = val if val != {} and val is not None else ""
+                                # Format by Unit
+                                if data is not None and "unit" in data:
+                                    val = self.formatByUnit(val, data["unit"])
                                 
+                                cell.value = val if val != {} and val is not None else ""                           
                             else:
                                 print("le node est none")
 

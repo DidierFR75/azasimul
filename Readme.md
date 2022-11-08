@@ -68,7 +68,8 @@ Metadatas :
 Matrix of datas :
 
 You only need to specify the point number, the data curve interpolation, the unit and one or more data in the column.
-For the line of data, you need to specify the the starting date (only once, it will be calculate automaticly by the algorithme according to the point number)
+For the line of data, you need to specify the the starting date (only once, it will be calculate automaticly by the algorithme according to the point number).
+Every sheet which is starting by _ will be not take into account by the algorithm.
 
 ## Models
 
@@ -115,10 +116,10 @@ To define a value to display in the model, you just have to add a value such as 
 
 There are also operators to display certain types of data or in a certain shape. The style of the reference cell is automatically copied.
 
-| Keyword Operator | Keyword Operator Description                                                             |
-| -----------------|:----------------------------------------------------------------------------------------:|
-| FOR:             | Insert all data matrix in each row below                                                 |
-| CATEGORY:        | Show data which belong to CATEGORY, all category cell values becomes a keyword operator  |
+| Keyword Operator | Keyword Operator Description                                                                                                   |
+| -----------------|:------------------------------------------------------------------------------------------------------------------------------:|
+| FOR:             | Insert all data matrix in each row below with FOR:[data], insert loop index with FOR:*INDEX*, insert each year with FOR:*YEAR* |
+| CATEGORY:        | Show data which belong to CATEGORY, all category cell values becomes a keyword operator                                        |
 
 
 #### Unit Formatting System
