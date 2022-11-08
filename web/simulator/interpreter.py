@@ -23,7 +23,6 @@ from functools import wraps
 import time
 from dateutil.relativedelta import relativedelta
 
-
 class InputAnalyzer:
 
     BASE_ELEMENTS_ROW = 17 # Location of base's elements
@@ -856,8 +855,9 @@ class OutputAnalyzer:
                                                     self.ws.insert_rows(cell.row+i)
                                             
                                             # Add values to each cell
-                                            for i in range(1, nb_points+1):
-                                                self.ws.cell(row=cell.row+i, column=cell.column).value = self.formatByUnit(data["values"][i-1], data["unit"])
+                                            self.ws.cell(row=cell.row, column=cell.column).value = self.formatByUnit(data["values"][0], data["unit"])
+                                            for i in range(1, nb_points):
+                                                self.ws.cell(row=cell.row+i, column=cell.column).value = self.formatByUnit(data["values"][i], data["unit"])
                                                 self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
 
                                 if node.analyzer.isConstantSheet():
