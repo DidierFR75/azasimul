@@ -23,6 +23,17 @@ from functools import wraps
 import time
 from dateutil.relativedelta import relativedelta
 
+def timeit(func):
+    @wraps(func)
+    def timeit_wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        total_time = end_time - start_time
+        print(f'Function {func.__name__}{args} {kwargs} Took {total_time:.4f} seconds')
+        return result
+    return timeit_wrapper
+
 class InputAnalyzer:
 
     BASE_ELEMENTS_ROW = 17 # Location of base's elements
@@ -51,9 +62,6 @@ class InputAnalyzer:
         self.operations = {}
         self.constants = {}
         self.summary = []
-
-    # Carefull _getValuesBySpecificiation could return bad values for % as exemple
-    # Get external parameters
     
     ### Util's functions
 
@@ -763,42 +771,57 @@ class OutputAnalyzer:
             
         return False
 
+    def insertTransformer(self, cell, for_already_insert):
+        """
+        Insert data according to the transformer function and return True if it's done else False
+        """
+
+        if isinstance(cell.value, str) and cell.value.startswith(self.FUNCTION["for"]):
+            l = [item for item in self.FUNCTION_TRANSFORMER["for"] if cell.value.endswith(item)]
+            if l != []:
+                l = l[0]
+                
+                start = self.tree.root.analyzer.getSummaryByName("Start")["summary_value"]
+                end = self.tree.root.analyzer.getSummaryByName("End")["summary_value"]
+                delta = relativedelta(end, start)
+
+                # Add date if YEAR else add index
+                values = list(map(lambda x: start + relativedelta(years=x) if l == "YEAR" else x+1, [item for item in range(0, delta.years+1)]))
+                unit = "date" if l == "YEAR" else None
+
+                if not for_already_insert:
+                    for i in range(1, len(values)):
+                        self.ws.insert_rows(cell.row+i)
+                
+                self.ws.cell(row=cell.row, column=cell.column).value = self.formatByUnit(values[0], unit)
+                for i in range(1, len(values)):
+                    self.ws.cell(row=cell.row+i, column=cell.column).value = self.formatByUnit(values[i], unit)
+                    self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
+                return True
+        return False
+
+    def unmergeCell(self, cell):
+        # Check if cell is MergedCell and unmerge it
+        for mergecells in self.ws.merged_cells.ranges:
+            pass
+
     def findAndReplaceAnnotateValues(self):
         """
         Find and replace all annotate's values by their specification's value
         """
+        
         for row in self.ws:
-            for_expression = False
+            for_already_insert = False
             for cell in row:
                 # add new row if not already did
                 if self.isInterpretable(cell.value):
+
+                    #self.unmergeCell(cell)
                     
-                    # Check function transformers
-                    if isinstance(cell.value, str) and cell.value.startswith(self.FUNCTION["for"]):
-                        l = [item for item in self.FUNCTION_TRANSFORMER["for"] if cell.value.endswith(item)]
-                        if l != []:
-                            l = l[0]
-                            
-                            start = self.tree.root.analyzer.getSummaryByName("Start")["summary_value"]
-                            end = self.tree.root.analyzer.getSummaryByName("End")["summary_value"]
-                            delta = relativedelta(end, start)
+                    if self.insertTransformer(cell, for_already_insert):
+                        for_already_insert = True
+                        continue
 
-                            # Add date if YEAR else add index
-                            values = list(map(lambda x: start + relativedelta(years=x) if l == "YEAR" else x+1, [item for item in range(0, delta.years+1)]))
-                            unit = "date" if l == "YEAR" else None
-
-                            if not for_expression:
-                                for_expression = True
-                                for i in range(1, len(values)+1):
-                                    self.ws.insert_rows(cell.row+i)
-                            
-                            self.ws.cell(row=cell.row, column=cell.column).value = self.formatByUnit(values[0], unit)
-                            for i in range(1, len(values)):
-                                self.ws.cell(row=cell.row+i, column=cell.column).value = self.formatByUnit(values[i], unit)
-                                self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
-                            
-                            continue
-                        
                     matches = re.finditer(self.EXPRESSION, cell.value)
                     for match in matches:
                         node = None
@@ -829,6 +852,26 @@ class OutputAnalyzer:
                                     data = node.analyzer.getSpecificationByName(attr[1])
                                                         
                                     if data is not None:
+                                        # Interprete FOR directive according to val
+                                        if cell.value.startswith(self.FUNCTION["for"]) and [item for item in self.FUNCTION_TRANSFORMER["for"] if cell.value.endswith(item)] == []:
+                                            start = self.tree.root.analyzer.getSummaryByName("Start")["summary_value"]
+                                            end = self.tree.root.analyzer.getSummaryByName("End")["summary_value"]
+                                            delta = relativedelta(end, start)
+                                            nb_points = delta.years
+
+                                            # if for not previously added and insert necessary row
+                                            if not for_already_insert:
+                                                for_already_insert = True
+                                                for i in range(1, nb_points):
+                                                    self.ws.insert_rows(cell.row+i)
+                                            
+                                            # Add values to each cell
+                                            for i in range(0, nb_points):
+                                                self.ws.cell(row=cell.row+i, column=cell.column).value = self.formatByUnit(data["values"][i], data["unit"])
+                                                self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
+                                            continue
+                                        
+                                        # Get data value
                                         if data["interpolation"] == "CONST":
                                             try:
                                                 val = data["values"][0]
@@ -840,42 +883,17 @@ class OutputAnalyzer:
                                             except:
                                                 raise Exception("Can't do a mean of value for ", data)
 
-                                        # Interprete FOR directive        
-                                        if cell.value.startswith(self.FUNCTION["for"]) and [item for item in self.FUNCTION_TRANSFORMER["for"] if cell.value.endswith(item)] == []:
-
-                                            start = self.tree.root.analyzer.getSummaryByName("Start")["summary_value"]
-                                            end = self.tree.root.analyzer.getSummaryByName("End")["summary_value"]
-                                            delta = relativedelta(end, start)
-                                            nb_points = delta.years
-
-                                            # if for not previously added and insert necessary row
-                                            if not for_expression:
-                                                for_expression = True
-                                                for i in range(1, nb_points+1):
-                                                    self.ws.insert_rows(cell.row+i)
-                                            
-                                            # Add values to each cell
-                                            self.ws.cell(row=cell.row, column=cell.column).value = self.formatByUnit(data["values"][0], data["unit"])
-                                            for i in range(1, nb_points):
-                                                self.ws.cell(row=cell.row+i, column=cell.column).value = self.formatByUnit(data["values"][i], data["unit"])
-                                                self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
-
-                                if node.analyzer.isConstantSheet():
-                                    if len(attr) > 2:
-                                        data = node.analyzer.getConstantByCategoryAndName(attr[1], attr[2])
-                                        val = data["value"] if data is not None else ""                    
+                                if node.analyzer.isConstantSheet() and len(attr) > 2:
+                                    data = node.analyzer.getConstantByCategoryAndName(attr[1], attr[2])
+                                    val = data["value"] if data is not None else None                    
 
                                 if node.analyzer.isSummarySheet():
                                     data = node.analyzer.getSummaryByName(attr[1])
                                     val = data["summary_value"] if data is not None else None
 
-                                # Format by Unit
-                                if data is not None and "unit" in data:
-                                    val = self.formatByUnit(val, data["unit"])
+                                val = self.formatByUnit(val, data["unit"]) if data is not None and "unit" in data else val
                                 
-                                cell.value = val if val != {} and val is not None else ""                           
-                            else:
-                                print("le node est none")
+                                cell.value = val if val != {} and val is not None else ""
 
     def save(self, path):
         self.wb.save(path)

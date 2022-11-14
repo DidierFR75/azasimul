@@ -79,7 +79,7 @@ deploy: ## Deploy on production server
 	--exclude '/data' \
 	. $(PRODUCTION_SERVER_ADDRESS):~/azasimul
 	@echo -e "\n$(WARN_COLOR)- Start $(WARN_COLOR)the $(WARN_COLOR) prod $(ERROR_COLOR)server$(NO_COLOR)\n"
-	@ssh $(PRODUCTION_SERVER_ADDRESS) "cd azasimul && make && rm -rf data && rm -rf web/simulator/migrations && mkdir web/simulator/migrations && touch web/simulator/migrations/__init__.py && mkdir web/media/models && make && sleep 10 && sudo chmod -R 777 . && sudo chmod -R 777 data && make install-prod"
+	@ssh $(PRODUCTION_SERVER_ADDRESS) "cd azasimul && make && rm -rf data && rm -rf web/simulator/migrations && mkdir web/simulator/migrations && touch web/simulator/migrations/__init__.py && mkdir web/media/ && mkdir web/media/models && mkdir web/media/models/input/ && mkdir web/media/models/output && make && sleep 10 && sudo chmod -R 777 . && sudo chmod -R 777 data && make install-prod"
 
 help: ## Display the description of each action 
 	@grep -E '(^[a-zA-Z_-]+:.*?##.*$$)|(^##)' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[32m%-15s\033[0m %s\n", $$1, $$2}' | sed -e 's/\[32m##/[33m/'
