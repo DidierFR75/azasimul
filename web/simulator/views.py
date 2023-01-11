@@ -161,7 +161,7 @@ def downloadData(request, id):
     # Zip all output file and serves to download
     zip_file = open(zip_path, 'rb')
     response = HttpResponse(zip_file, content_type='application/zip')
-    response['Content-Disposition'] = 'attachment; filename="simulation_result_{'+str(simulation.id)+'}"'
+    response['Content-Disposition'] = 'attachment; filename="simulation_result_'+simulation.project_name+'_'+simulation.created_at.strftime("%m/%d/%Y")+'"'
 
     # Remove zip file after download
     os.remove(zip_path)

@@ -38,17 +38,19 @@ graph: ## Generate model's diagram
 	$(SERVER) python3 manage.py graph_models -a -g -o aza_graph_project.png
 
 install: ## Init data's project
-	# rm -rf data && rm -rf web/media && rm -rf web/simulator/migrations
-	# mkdir web/simulator/migrations
-	# touch web/simulator/migrations/__init__.py
+	rm -rf data && rm -rf web/media && rm -rf web/simulator/migrations
+	mkdir web/simulator/migrations
+	touch web/simulator/migrations/__init__.py
 	rm -rf data
+	mkdir data
+	chmod -R 777 data
 	rm -rf web/simulator/migrations
 	mkdir web/simulator/migrations
-	mkdir web/media/ && mkdir web/media/models
+	rm -rf wbe/media
+	mkdir web/media/ && mkdir web/media/models && mkdir web/media/models/output && mkdir web/media/models/input
 	touch web/simulator/migrations/__init__.py
 	make
 	sleep 10
-	chmod -R 777 data
 	make migration
 	make graph
 	$(SERVER) python3 manage.py loaddata simulator/fixtures/users.json
