@@ -99,9 +99,9 @@ def edit(request, id):
             # Delete previous inputs
             if len(files) > 0:
                 simulation.simulation_input.all().delete()
-            # Add new inputs
-            for f in files:
-                SimulationInput.objects.create(input_file=f, simulation=simulation)
+                # Add new inputs
+                for f in files:
+                    SimulationInput.objects.create(input_file=f, simulation=simulation)
 
             messages.success(request, "The simulation has been modify !")
             return redirect("simulator:index")
@@ -153,6 +153,7 @@ def generateCSV(request, id):
 
     return response
 
+@login_required(login_url='simulation:login')
 def downloadData(request, id):
     simulation = get_object_or_404(Simulation, id=id)
     input_files = os.getcwd()+ "/media/"+simulation.getInputFolder()+"/"
@@ -167,6 +168,27 @@ def downloadData(request, id):
     os.remove(zip_path)
 
     return response
+
+@login_required(login_url='simulation:login')
+def downloadOneData(request, id, namefile):
+    simulation = get_object_or_404(Simulation, id=id) 
+
+    path = settings.MEDIA_ROOT+"/inputs/simulation_"+str(simulation.id)
+
+    # Copy /operations in media/input/simulation_id to take into account default operations
+    for model_file in os.listdir(path):
+        if model_file == namefile:
+            # Zip all output file and serves to download
+            zip_file = open(path+"/"+namefile, 'rb')
+            response = HttpResponse(zip_file, content_type='application/zip')
+            response['Content-Disposition'] = 'attachment; filename="'+namefile+'"'
+
+            return response
+    raise Exception("File not exist in this simulation")
+
+@login_required(login_url='simulation:login')
+def listDownloadData(request, id):
+    return render(request, 'dashboard/listdatas.html', {"input_files": os.listdir(settings.MEDIA_ROOT+"/inputs/simulation_"+str(id)), "simulation_id": id})
 
 # Add Questions/Constants page
 def index_co(request, type):

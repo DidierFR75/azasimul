@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %} 
+<div class="container py-5">
+    <h1 class="text-center">Datas List</h1>
+
+    {% if input_files|length > 0 %}
+        <div class="table-responsive" style="min-height: 10em;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">File name</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in input_files %}
+                    <tr>
+                        <td>{{ f }}</td>
+                        <td><a href="{% url 'simulator:downloadOneData' simulation_id f %}">Download</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-center mt-3">There is no data created in the system. Do you want to <a href="{% url 'simulator:new_co' type %}">create one</a> ?</p>
+    {% endif %}
+</div>
+{% endblock %}
