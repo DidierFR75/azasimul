@@ -49,31 +49,36 @@ def new(request):
                 # Temporary save file
                 path = settings.MEDIA_ROOT+"/tmp/"+str(f)
                 default_storage.save(path, ContentFile(f.read()))
+                
                 # Check if file has specification format or if it has summary sheet
                 fc = FileChecker(path)
                 fc.checkForSpecFormat()
-                os.remove(path)
 
                 # Add additionnal data in simulation
                 if fc.summary is not None:
                     for summary in fc.summary:
                         summary["summary_name"] = summary["summary_name"].lower().replace(" ", "_")
                         if hasattr(simulation, summary["summary_name"]) and (getattr(simulation, summary["summary_name"]) is None or getattr(simulation, summary["summary_name"]) != summary["summary_value"]):
+                            # If value in form different of value in files, we modify the file's values according to the form's values
+                            if form.cleaned_data.get(summary["summary_name"]) != summary["summary_value"] and form.cleaned_data.get(summary["summary_name"]) != None and form.cleaned_data.get(summary["summary_name"]) != "" and form.cleaned_data.get(summary["summary_name"]) != " ":
+                                summary["summary_value"] =  form.cleaned_data.get(summary["summary_name"])
                             setattr(simulation, summary["summary_name"], summary["summary_value"])
-
+        
                 if fc.non_accepted != []:
                     messages.error(request, "The following sheets was not take into account : "+ ','.join(fc.non_accepted))
 
                 # Create file object
                 inputs.append(SimulationInput(input_file=f))
-            
+
+                os.remove(path)
+
             # Create simulation object and inputs objects
             simulation.save()
             
             for input in inputs:
                 input.simulation = simulation
                 input.save()
-
+            
             messages.success(request, "The simulation has been register !")
             return redirect("simulator:index")
         
@@ -101,6 +106,23 @@ def edit(request, id):
                 simulation.simulation_input.all().delete()
                 # Add new inputs
                 for f in files:
+                    path = settings.MEDIA_ROOT+"/tmp/"+str(f)
+                    default_storage.save(path, ContentFile(f.read()))
+                    
+                    # Check if file has specification format or if it has summary sheet
+                    fc = FileChecker(path)
+                    fc.checkForSpecFormat()
+
+                    # Add additionnal data in simulation
+                    if fc.summary is not None:
+                        for summary in fc.summary:
+                            summary["summary_name"] = summary["summary_name"].lower().replace(" ", "_")
+                            if hasattr(simulation, summary["summary_name"]) and (getattr(simulation, summary["summary_name"]) is None or getattr(simulation, summary["summary_name"]) != summary["summary_value"]):
+                                # If value in form different of value in files, we modify the file's values according to the form's values
+                                if form.cleaned_data.get(summary["summary_name"]) != summary["summary_value"] and form.cleaned_data.get(summary["summary_name"]) != None and form.cleaned_data.get(summary["summary_name"]) != "" and form.cleaned_data.get(summary["summary_name"]) != " ":
+                                    summary["summary_value"] = form.cleaned_data.get(summary["summary_name"])
+                                setattr(simulation, summary["summary_name"], summary["summary_value"])
+
                     SimulationInput.objects.create(input_file=f, simulation=simulation)
 
             messages.success(request, "The simulation has been modify !")

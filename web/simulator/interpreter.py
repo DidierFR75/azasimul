@@ -1,4 +1,3 @@
-from curses import keyname
 from unicodedata import category
 from openpyxl import Workbook, load_workbook
 from openpyxl.writer.excel import save_virtual_workbook
@@ -19,20 +18,7 @@ import math
 import datetime
 from copy import copy, deepcopy
 import copy
-from functools import wraps
-import time
 from dateutil.relativedelta import relativedelta
-
-def timeit(func):
-    @wraps(func)
-    def timeit_wrapper(*args, **kwargs):
-        start_time = time.perf_counter()
-        result = func(*args, **kwargs)
-        end_time = time.perf_counter()
-        total_time = end_time - start_time
-        print(f'Function {func.__name__}{args} {kwargs} Took {total_time:.4f} seconds')
-        return result
-    return timeit_wrapper
 
 class InputAnalyzer:
 
@@ -961,7 +947,7 @@ class FileChecker:
         self.non_accepted = []
 
     def checkForSpecFormat(self):
-        # Check if file contains only specifications and track summary data as well ass non accepted files as Constants or Operations
+        # Check if file contains only specifications and track summary data as well as non accepted files as Constants or Operations
         wb = load_workbook(self.path)
         for sheet_name in wb.sheetnames:
             analyzer = InputAnalyzer(wb[sheet_name], sheet_name, self.path)
@@ -972,6 +958,16 @@ class FileChecker:
                 
                 if analyzer.isConstantSheet() or analyzer.isOperationSheet():
                     self.non_accepted.append(sheet_name)
-                    wb.remove(wb[sheet_name])
-                        
+                    wb.remove(wb[sheet_name])         
+        wb.save(self.path)
+
+    def updateFileFromArbitrarySummaryValue(self, modify_summary):
+        wb = load_workbook(self.path)
+        for sheet_name in wb.sheetnames:
+            if sheet_name == "Summary":
+                for composition in wb[sheet_name]["A"]:
+                    if composition.value is not None:
+                        expected_column = composition.value.lower().replace(" ", "_")
+                        if expected_column in modify_summary.keys():
+                            wb[sheet_name].cell(row=composition.row, column=composition.column+1).value = modify_summary[expected_column]             
         wb.save(self.path)
