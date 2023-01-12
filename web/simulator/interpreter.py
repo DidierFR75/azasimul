@@ -945,29 +945,27 @@ class FileChecker:
         self.path = path
         self.summary = None
         self.non_accepted = []
+        self.wb = None
 
     def checkForSpecFormat(self):
         # Check if file contains only specifications and track summary data as well as non accepted files as Constants or Operations
-        wb = load_workbook(self.path)
-        for sheet_name in wb.sheetnames:
-            analyzer = InputAnalyzer(wb[sheet_name], sheet_name, self.path)
+        self.wb = load_workbook(self.path)
+        for sheet_name in self.wb.sheetnames:
+            analyzer = InputAnalyzer(self.wb[sheet_name], sheet_name, self.path)
             if analyzer.create():
                 if analyzer.isSummarySheet():
                     self.summary = analyzer.summary
-                    wb.remove(wb[sheet_name])
+                    self.wb.remove(self.wb[sheet_name])
                 
                 if analyzer.isConstantSheet() or analyzer.isOperationSheet():
                     self.non_accepted.append(sheet_name)
-                    wb.remove(wb[sheet_name])         
-        wb.save(self.path)
+                    self.wb.remove(self.wb[sheet_name])         
+        self.wb.save(self.path)
 
-    def updateFileFromArbitrarySummaryValue(self, modify_summary):
-        wb = load_workbook(self.path)
-        for sheet_name in wb.sheetnames:
-            if sheet_name == "Summary":
-                for composition in wb[sheet_name]["A"]:
-                    if composition.value is not None:
-                        expected_column = composition.value.lower().replace(" ", "_")
-                        if expected_column in modify_summary.keys():
-                            wb[sheet_name].cell(row=composition.row, column=composition.column+1).value = modify_summary[expected_column]             
-        wb.save(self.path)
+    def updateFileFromArbitrarySummaryValue(self, summary_name, summary_value):
+        self.wb = load_workbook(self.path) if self.wb == None else self.wb
+        ws = self.wb["Summary"]
+        for composition in ws["A"]:
+            if composition.value is not None and composition.value == summary_name:
+                self.wb.cell(row=composition.row, column=composition.column+1).value = summary_value
+                self.wb.save(self.path)

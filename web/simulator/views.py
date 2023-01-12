@@ -20,10 +20,12 @@ from django.http import Http404
 from .forms import NewUserForm, SimulationForm
 from .models import Simulation, SimulationInput
 from .interpreter import FileChecker, SheetOutputGenerator, SheetInterpreter
+from openpyxl import Workbook, load_workbook
 
 import os
 import zipfile
 import shutil
+import datetime
 
 MODEL_INPUT_FILES = settings.MEDIA_ROOT + "/models/input/"
 MODEL_OUTPUT_FILES = settings.MEDIA_ROOT +"/models/output/"
@@ -38,6 +40,7 @@ def new(request):
     if request.method == "POST":
         form = SimulationForm(request.POST, request.FILES)
         if form.is_valid():
+
             # Add current User in request
             simulation = form.save(commit=False)
             simulation.user = request.user
@@ -57,13 +60,14 @@ def new(request):
                 # Add additionnal data in simulation
                 if fc.summary is not None:
                     for summary in fc.summary:
-                        summary["summary_name"] = summary["summary_name"].lower().replace(" ", "_")
-                        if hasattr(simulation, summary["summary_name"]) and (getattr(simulation, summary["summary_name"]) is None or getattr(simulation, summary["summary_name"]) != summary["summary_value"]):
+                        summary_name = summary["summary_name"].lower().replace(" ", "_")
+                        if hasattr(simulation, summary_name) and (getattr(simulation, summary_name) is None or getattr(simulation, summary_name) != summary["summary_value"]):
                             # If value in form different of value in files, we modify the file's values according to the form's values
-                            if form.cleaned_data.get(summary["summary_name"]) != summary["summary_value"] and form.cleaned_data.get(summary["summary_name"]) != None and form.cleaned_data.get(summary["summary_name"]) != "" and form.cleaned_data.get(summary["summary_name"]) != " ":
-                                summary["summary_value"] =  form.cleaned_data.get(summary["summary_name"])
-                            setattr(simulation, summary["summary_name"], summary["summary_value"])
-        
+                            if form.cleaned_data.get(summary_name) != summary["summary_value"] and form.cleaned_data.get(summary_name) != None and form.cleaned_data.get(summary_name) != "" and form.cleaned_data.get(summary_name) != " ":                                
+                                summary_name = form.cleaned_data.get(summary_name)
+                                                        
+                            setattr(simulation, summary_name, summary["summary_value"])
+                        
                 if fc.non_accepted != []:
                     messages.error(request, "The following sheets was not take into account : "+ ','.join(fc.non_accepted))
 
@@ -74,10 +78,26 @@ def new(request):
 
             # Create simulation object and inputs objects
             simulation.save()
-            
+
             for input in inputs:
                 input.simulation = simulation
                 input.save()
+
+            # Modify excel file according to the database properties
+            input_files = settings.MEDIA_ROOT + "/inputs/simulation_" + str(simulation.id)
+            for model_file in os.listdir(input_files):
+                wb = load_workbook(input_files+"/"+model_file)
+                wb.iso_dates = True
+                if "Summary" in wb.sheetnames:
+                    ws = wb["Summary"]
+                    for composition in ws["A"]:
+                        if composition.value is not None:
+                            val = form.cleaned_data.get(composition.value.lower().replace(" ", "_"))
+                            if composition.value.lower().replace(" ", "_") in form.cleaned_data.keys() and ws.cell(row=composition.row, column=composition.column+1).value != val:
+                                val = datetime.datetime.strftime(val, "%Y-%m-%d %H:%M:%S") if isinstance(val, datetime.datetime) else val
+
+                                ws.cell(row=composition.row, column=composition.column+1).value = val
+                                wb.save(input_files+"/"+model_file)
             
             messages.success(request, "The simulation has been register !")
             return redirect("simulator:index")
@@ -99,7 +119,8 @@ def edit(request, id):
         form = SimulationForm(request.POST, request.FILES, instance=simulation)
         if form.is_valid():
             form.save()
-             # Files Handler
+            
+            # Files Handler
             files = request.FILES.getlist('input_files')
             # Delete previous inputs
             if len(files) > 0:
@@ -124,7 +145,24 @@ def edit(request, id):
                                 setattr(simulation, summary["summary_name"], summary["summary_value"])
 
                     SimulationInput.objects.create(input_file=f, simulation=simulation)
+                            
+                    os.remove(path)
 
+            # Modify excel file according to the database properties
+            input_files = settings.MEDIA_ROOT + "/inputs/simulation_" + str(simulation.id)
+            for model_file in os.listdir(input_files):
+                wb = load_workbook(input_files+"/"+model_file)
+                wb.iso_dates = True
+                if "Summary" in wb.sheetnames:
+                    ws = wb["Summary"]
+                    for composition in ws["A"]:
+                        if composition.value is not None:
+                            val = form.cleaned_data.get(composition.value.lower().replace(" ", "_"))
+                            if composition.value.lower().replace(" ", "_") in form.cleaned_data.keys() and ws.cell(row=composition.row, column=composition.column+1).value != val:
+                                val = datetime.datetime.strftime(val, "%Y-%m-%d %H:%M:%S") if isinstance(val, datetime.datetime) else val
+
+                                ws.cell(row=composition.row, column=composition.column+1).value = val
+                                wb.save(input_files+"/"+model_file)
             messages.success(request, "The simulation has been modify !")
             return redirect("simulator:index")
         
@@ -213,6 +251,7 @@ def listDownloadData(request, id):
     return render(request, 'dashboard/listdatas.html', {"input_files": os.listdir(settings.MEDIA_ROOT+"/inputs/simulation_"+str(id)), "simulation_id": id})
 
 # Add Questions/Constants page
+@login_required(login_url="simulator:login")
 def index_co(request, type):
     model = MODEL_INPUT_FILES if type == 'input' else MODEL_OUTPUT_FILES
 
@@ -235,6 +274,7 @@ def new_co(request, type):
         
     return render(request, 'co/new.html')
 
+@login_required(login_url="simulator:login")
 def download_co(request, type, name):
     model = MODEL_INPUT_FILES if type == 'input' else MODEL_OUTPUT_FILES
 
@@ -246,6 +286,7 @@ def download_co(request, type, name):
             return response
     raise Http404
    
+@login_required(login_url="simulator:login")
 def delete_co(request, type, name):
     model = MODEL_INPUT_FILES if type == 'input' else MODEL_OUTPUT_FILES
 
