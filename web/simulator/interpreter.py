@@ -101,16 +101,30 @@ class InputAnalyzer:
         """
             Return dict (row_number, point_no, date) of all points and associate's date
         """
-        points=[]
-        for point in self.ws[self.POINT_N_COL]:
-            if point.value is not None and (type(point.value) is int or type(point.value) is float or (type(point.value) is str and point.value.startswith("=")) ):
-                points.append({
-                    "row": point.row, 
-                    "point_n": self.evaluate(point), 
-                    "date": self.ws[self.DATE_COL+str(point.row)].value
-                })
         
-        return self._fullFillPointsWithDates(points)
+        points = [
+            {"row": point.row, 
+            "point_n": self.evaluate(point), 
+            "date": self.ws[self.DATE_COL+str(point.row)].value} 
+            for point in self.ws[self.POINT_N_COL] 
+            if point.value is not None and (isinstance(point.value, (int, float)) or (isinstance(point.value, str) and point.value.startswith("=")))
+            ]
+        
+        # Check if exist at least 2 dates in points
+        valid_points = list(filter(lambda pt: pt["date"] is not None, points))
+        if len(valid_points) >= 2:
+            x = list(range(len(valid_points)))
+            y = list(map(datetime.datetime.timestamp, [pt["date"] for pt in valid_points]))
+            interp1d = interpolate.interp1d(x, y, fill_value="extrapolate")
+            interpolated_timestamps = interp1d(x)
+            for pt, interpolated_timestamp in zip(valid_points, interpolated_timestamps):
+                pt["date"] = datetime.datetime.fromtimestamp(interpolated_timestamp)
+            for pt, interpolated_timestamp in zip(points, interpolated_timestamps):
+                if pt["date"] is None:
+                    pt["date"] = datetime.datetime.fromtimestamp(interpolated_timestamp)
+            return points
+        else:
+            return self._fullFillPointsWithDates(points)
 
     def _generateSpecifications(self):
         """
@@ -961,11 +975,3 @@ class FileChecker:
                     self.non_accepted.append(sheet_name)
                     self.wb.remove(self.wb[sheet_name])         
         self.wb.save(self.path)
-
-    def updateFileFromArbitrarySummaryValue(self, summary_name, summary_value):
-        self.wb = load_workbook(self.path) if self.wb == None else self.wb
-        ws = self.wb["Summary"]
-        for composition in ws["A"]:
-            if composition.value is not None and composition.value == summary_name:
-                self.wb.cell(row=composition.row, column=composition.column+1).value = summary_value
-                self.wb.save(self.path)
