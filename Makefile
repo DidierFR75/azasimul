@@ -1,6 +1,7 @@
 .PHONY: deploy
 
 # Environnement's variables
+APP_CODE=simaza
 SERVER=docker-compose run web
 PRODUCTION_SERVER_ADDRESS=ubuntu@146.59.237.34
 
@@ -16,6 +17,9 @@ NO_COLOR    = \033[m
 
 run: ## Start server
 	docker-compose up --build -d
+
+run-db: ## Close server
+	docker-compose up -d db
 
 down: ## Close server
 	docker-compose down

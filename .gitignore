@@ -6,5 +6,7 @@ web/static/
 
 web/simulator/static/
 ___*
-web/*/static/ckeditor/*
+web/azasimul/static/ckeditor/*
 **/static/ckeditor/*
+*.pyc
+web/azasimul/static/django_extensions/*

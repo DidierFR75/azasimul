@@ -18,8 +18,9 @@ from django.conf import settings
 from django.http import Http404
 
 from .forms import NewUserForm, SimulationForm
-from .models import Simulation, SimulationInput
-from .interpreter import FileChecker, SheetOutputGenerator, SheetInterpreter
+from .models import Simulation, SimulationInput, MODEL_INPUT_FILES,MODEL_OUTPUT_FILES
+from .interpreter import FileChecker, SheetOutputGenerator, SheetInterpreter, folder_zip
+
 from openpyxl import Workbook, load_workbook
 
 import os
@@ -27,13 +28,47 @@ import zipfile
 import shutil
 import datetime
 
-MODEL_INPUT_FILES = settings.MEDIA_ROOT + "/models/input/"
-MODEL_OUTPUT_FILES = settings.MEDIA_ROOT +"/models/output/"
-
 @login_required(login_url="simulator:login")
 def index(request):
     simulations = Simulation.objects.all()
     return render(request, "dashboard/index.html", {"simulations": simulations})
+
+def WS_update_fromForm(simul_id, form):
+    # Modify excel file according to the database properties
+    input_path = Simulation.getPath(simul_id,'inputs')
+    for model_file in os.listdir(input_path):
+        wb_path = input_path+"/"+model_file
+        wb = load_workbook(wb_path)
+        wb.iso_dates = True
+        changesNbr = 0
+        if "Summary" in wb.sheetnames:
+            ws = wb["Summary"]
+            for composition in ws["A"]:
+                if composition.value is not None:
+                    val = form.cleaned_data.get(composition.value.lower().replace(" ", "_"))
+                    if composition.value.lower().replace(" ", "_") in form.cleaned_data.keys() and ws.cell(row=composition.row, column=composition.column+1).value != val:
+                        if isinstance(val, datetime.datetime):
+                            val = datetime.datetime.strftime(val, "%Y-%m-%d %H:%M:%S")
+                        ws.cell(row=composition.row, column=composition.column+1).value = val
+                        changesNbr += 1
+        if changesNbr:
+            wb.save(wb_path)
+
+# Modify excel file according to the database properties
+            # input_files = settings.MEDIA_ROOT + "/inputs/simulation_" + str(simulation.id)
+            # for model_file in os.listdir(input_files):
+            #     wb = load_workbook(input_files+"/"+model_file)
+            #     wb.iso_dates = True
+            #     if "Summary" in wb.sheetnames:
+            #         ws = wb["Summary"]
+            #         for composition in ws["A"]:
+            #             if composition.value is not None:
+            #                 val = form.cleaned_data.get(composition.value.lower().replace(" ", "_"))
+            #                 if composition.value.lower().replace(" ", "_") in form.cleaned_data.keys() and ws.cell(row=composition.row, column=composition.column+1).value != val:
+            #                     val = datetime.datetime.strftime(val, "%Y-%m-%d %H:%M:%S") if isinstance(val, datetime.datetime) else val
+
+            #                     ws.cell(row=composition.row, column=composition.column+1).value = val
+            #                     wb.save(input_files+"/"+model_file)
 
 @login_required(login_url="simulator:login")
 def new(request):
@@ -47,7 +82,7 @@ def new(request):
             
             # Files Handler
             files = request.FILES.getlist('input_files')
-            inputs = []
+            simul_inputs = []
             for f in files:
                 # Temporary save file
                 path = settings.MEDIA_ROOT+"/tmp/"+str(f)
@@ -58,7 +93,7 @@ def new(request):
                 fc.checkForSpecFormat()
 
                 # Add additionnal data in simulation
-                if fc.summary is not None:
+                if fc.summary:
                     for summary in fc.summary:
                         summary_name = summary["summary_name"].lower().replace(" ", "_")
                         if hasattr(simulation, summary_name) and (getattr(simulation, summary_name) is None or getattr(simulation, summary_name) != summary["summary_value"]):
@@ -69,37 +104,23 @@ def new(request):
                             setattr(simulation, summary_name, summary["summary_value"])
                         
                 if fc.non_accepted != []:
-                    messages.error(request, "The following sheets was not take into account : "+ ','.join(fc.non_accepted))
+                    messages.error(request, "The following sheets were not take into account: "+ ','.join(fc.non_accepted))
 
                 # Create file object
-                inputs.append(SimulationInput(input_file=f))
+                simul_inputs.append(SimulationInput(input_file=f))
 
                 os.remove(path)
 
             # Create simulation object and inputs objects
             simulation.save()
+            simulation.createPaths()
 
-            for input in inputs:
-                input.simulation = simulation
-                input.save()
+            for simul_input in simul_inputs:
+                simul_input.simulation = simulation
+                simul_input.save()
 
-            # Modify excel file according to the database properties
-            input_files = settings.MEDIA_ROOT + "/inputs/simulation_" + str(simulation.id)
-            for model_file in os.listdir(input_files):
-                wb = load_workbook(input_files+"/"+model_file)
-                wb.iso_dates = True
-                if "Summary" in wb.sheetnames:
-                    ws = wb["Summary"]
-                    for composition in ws["A"]:
-                        if composition.value is not None:
-                            val = form.cleaned_data.get(composition.value.lower().replace(" ", "_"))
-                            if composition.value.lower().replace(" ", "_") in form.cleaned_data.keys() and ws.cell(row=composition.row, column=composition.column+1).value != val:
-                                val = datetime.datetime.strftime(val, "%Y-%m-%d %H:%M:%S") if isinstance(val, datetime.datetime) else val
-
-                                ws.cell(row=composition.row, column=composition.column+1).value = val
-                                wb.save(input_files+"/"+model_file)
-            
-            messages.success(request, "The simulation has been register !")
+            WS_update_fromForm(simulation.id, form)
+            messages.success(request, "The simulation has been registered.")
             return redirect("simulator:index")
         
         message = ""
@@ -107,7 +128,7 @@ def new(request):
             for field in form:
                 for error in field.errors:
                     message = message + error + ', '
-        messages.error(request, "An error appear : " + message)
+        messages.error(request, "Error: " + message)
 
     form = SimulationForm()
     return render(request, 'dashboard/new.html', {"simulation_form": form})
@@ -148,22 +169,8 @@ def edit(request, id):
                             
                     os.remove(path)
 
-            # Modify excel file according to the database properties
-            input_files = settings.MEDIA_ROOT + "/inputs/simulation_" + str(simulation.id)
-            for model_file in os.listdir(input_files):
-                wb = load_workbook(input_files+"/"+model_file)
-                wb.iso_dates = True
-                if "Summary" in wb.sheetnames:
-                    ws = wb["Summary"]
-                    for composition in ws["A"]:
-                        if composition.value is not None:
-                            val = form.cleaned_data.get(composition.value.lower().replace(" ", "_"))
-                            if composition.value.lower().replace(" ", "_") in form.cleaned_data.keys() and ws.cell(row=composition.row, column=composition.column+1).value != val:
-                                val = datetime.datetime.strftime(val, "%Y-%m-%d %H:%M:%S") if isinstance(val, datetime.datetime) else val
-
-                                ws.cell(row=composition.row, column=composition.column+1).value = val
-                                wb.save(input_files+"/"+model_file)
-            messages.success(request, "The simulation has been modify !")
+            WS_update_fromForm(simulation.id, form)
+            messages.success(request, "The simulation has been updated.")
             return redirect("simulator:index")
         
         message = ""
@@ -183,51 +190,61 @@ def edit(request, id):
 def delete(request, id):
     simulation = get_object_or_404(Simulation, id=id)
     simulation.delete()
-    messages.success(request, 'The simulation '+simulation.project_name+' has been deleted')
+    messages.success(request, f'The simulation #{id} "{simulation.project_name}" has been deleted.')
     return redirect('simulator:index')
 
-@login_required(login_url='simulation:login')
-def generateCSV(request, id):
-    simulation = get_object_or_404(Simulation, id=id) 
-
-    input_files = os.getcwd()+ "/media/"+simulation.getInputFolder()+"/"
-    result_path = settings.MEDIA_ROOT+ "/outputs/simulation_{}/".format(simulation.id)
-
-    # Copy /operations in media/input/simulation_id to take into account default operations
-    for model_file in os.listdir(MODEL_INPUT_FILES):
-        src = MODEL_INPUT_FILES + model_file
-        dst = input_files + model_file
-        shutil.copyfile(src, dst)
-
-    # Generate output files
-    output = SheetOutputGenerator(input_files, MODEL_OUTPUT_FILES)
-    zip_path = output.generate(result_path, "simulation")
-    
-    # Zip all output file and serves to download
+def response_zip_file(zip_path, zip_fn, removeAfterDownload=False):
+    """Zip all output file and serve to download"""
+    from django.http import FileResponse
     zip_file = open(zip_path, 'rb')
-    response = HttpResponse(zip_file, content_type='application/zip')
-    response['Content-Disposition'] = 'attachment; filename="simulation_result_'+simulation.project_name+'_'+simulation.created_at.strftime("%m/%d/%Y")+'"'
+    response = FileResponse(zip_file, as_attachment=True, filename=zip_fn)
 
-    # Remove zip file after download
-    os.remove(zip_path)
-
+    # response = HttpResponse(
+    #     zip_file,
+    #     headers={
+    #         "Content-Type": "application/zip",
+    #         "Content-Disposition": f'attachment; filename="{zip_fn}"',
+    #     },
+    # )
+    # response = HttpResponse(zip_file, content_type='application/zip')
+    # response['Content-Disposition'] = f'attachment; filename="{zip_fn}"'
+    if removeAfterDownload:
+        os.remove(zip_path)
     return response
 
+def response_zip(include_inputs=False):
+    pass
+
 @login_required(login_url='simulation:login')
-def downloadData(request, id):
-    simulation = get_object_or_404(Simulation, id=id)
-    input_files = os.getcwd()+ "/media/"+simulation.getInputFolder()+"/"
-    zip_path = SheetOutputGenerator.createZip(input_files, "datas")
-    
-    # Zip all output file and serves to download
-    zip_file = open(zip_path, 'rb')
-    response = HttpResponse(zip_file, content_type='application/zip')
-    response['Content-Disposition'] = 'attachment; filename="simulation_result_'+simulation.project_name+'_'+simulation.created_at.strftime("%m/%d/%Y")+'"'
+def doCompute(request, simul_id, downloadInputs=False):
+    simulation = get_object_or_404(Simulation, id=simul_id) 
+    input_path = Simulation.getPath(simul_id,'inputs')
 
-    # Remove zip file after download
-    os.remove(zip_path)
+    if downloadInputs:
+        zip_fn = f"SimAZA_{simulation.project_name}_inputs_{simulation.created_at.strftime('%Y-%m-%d')}"
+        zip_path = folder_zip(input_path, zip_fn)
+    else:
+        # Copy default .xlsx files (Common Operations, Financial...)
+        for fn in os.listdir(MODEL_INPUT_FILES):
+            src = MODEL_INPUT_FILES + fn
+            dst = f"{input_path}/{fn}"
+            shutil.copyfile(src, dst)
 
-    return response
+        interpreter = SheetInterpreter(input_path)
+        interpreter.evaluate()
+        # Generate output files
+        generator = SheetOutputGenerator(interpreter, MODEL_OUTPUT_FILES)
+        generator.analyzeAllOutputSheet()
+        result_path = Simulation.getPath(simul_id,'outputs')
+        zip_fn = f"SimAZA_{simulation.project_name}_{simulation.created_at.strftime('%Y-%m-%d')}"
+        zip_path = generator.generate(result_path, zip_fn)
+
+    zip_fn += ".zip"
+    return response_zip_file(zip_path, zip_fn)
+
+@login_required(login_url='simulation:login')
+def downloadData(request, simul_id):
+    return doCompute(request, simul_id, downloadInputs=True)
 
 @login_required(login_url='simulation:login')
 def downloadOneData(request, id, namefile):
@@ -295,78 +312,4 @@ def delete_co(request, type, name):
         os.remove(path)
         return redirect('simulator:index_co', type=type)
     raise Http404
-   
-# User Pages
-def register_request(request):
-    if request.method == "POST":
-        form = NewUserForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            messages.success(request, "Registration successful.")
-            return redirect("simulator:index")
 
-        message = ""
-        if form.errors:
-            for field in form:
-                for error in field.errors:
-                    message = message + error + ', '
-
-        messages.error(request, "Unsuccessful registration. " + message)
-    form = NewUserForm()
-    return render (request=request, template_name="users/register.html", context={"register_form": form})
-
-def login_request(request):
-	if request.method == "POST":
-		form = AuthenticationForm(request, data=request.POST)
-		if form.is_valid():
-			username = form.cleaned_data.get('username')
-			password = form.cleaned_data.get('password')
-			user = authenticate(username=username, password=password)
-			if user is not None:
-				login(request, user)
-				messages.info(request, f"You are now logged in as {username}.")
-				return redirect("simulator:index")
-			else:
-				messages.error(request,"Invalid username or password.")
-		else:
-			messages.error(request,"Invalid username or password.")
-	form = AuthenticationForm()
-	return render(request=request, template_name="users/login.html", context={"login_form": form})
-
-@login_required(login_url="simulator:login")
-def logout_request(request):
-	logout(request)
-	messages.info(request, "You have successfully logged out.") 
-	return redirect("simulator:index")
-
-def password_reset_request(request):
-    if request.method == "POST":
-        password_reset_form = PasswordResetForm(request.POST)
-        if password_reset_form.is_valid():
-            data = password_reset_form.cleaned_data['email']
-            associated_users = User.objects.filter(Q(email=data))
-            if associated_users.exists():
-                for user in associated_users:
-                    subject = "Password Reset Requested"
-                    email_template_name = "users/password/password_reset_email.txt"
-                    c = {
-                    "email":user.email,
-                    'domain':'127.0.0.1:8000',
-                    'site_name': 'Website',
-                    "uid": urlsafe_base64_encode(force_bytes(user.pk)),
-                    "user": user,
-                    'token': default_token_generator.make_token(user),
-                    'protocol': 'http',
-                    }
-                    email = render_to_string(email_template_name, c)
-                    try:
-                        send_mail(subject, email, 'admin@example.com' , [user.email], fail_silently=False)
-                    except BadHeaderError:
-                        return HttpResponse('Invalid header found.')
-                    messages.success(request, 'A message with reset password instructions has been sent to your inbox.')
-                    return redirect ("simulator:index")
-            messages.error(request, "An invalid email has been entered")
-        messages.error(request, "This user email doesn't exist")
-    password_reset_form = PasswordResetForm()
-    return render(request=request, template_name="users/password/password_reset.html", context={"password_reset_form": password_reset_form})

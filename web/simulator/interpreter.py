@@ -1,6 +1,6 @@
 from unicodedata import category
 from openpyxl import Workbook, load_workbook
-from openpyxl.writer.excel import save_virtual_workbook
+# from openpyxl.writer.excel import save_virtual_workbook
 import os
 import pandas as pd
 import numpy as np
@@ -19,6 +19,19 @@ import datetime
 from copy import copy, deepcopy
 import copy
 from dateutil.relativedelta import relativedelta
+
+def folder_zip(folderPath, zip_fn):
+    """
+    Create <zip_fn>.zip of a folder and return path
+    """
+    directory = pathlib.Path(folderPath)
+    destination = f"{directory.parent.absolute()}/{zip_fn}.zip"
+
+    with zipfile.ZipFile(destination, mode="w") as archive:
+        for file_path in directory.iterdir():
+            archive.write(file_path, arcname=file_path.name)
+    return destination
+
 
 class InputAnalyzer:
 
@@ -73,7 +86,7 @@ class InputAnalyzer:
     def clean_string(self, text):
         return str(text).replace("\n", "").replace("\t", "").lstrip()
 
-    ### Test type's functions
+    ### 4 Sheet types
 
     def isOperationSheet(self):
         if self.OPERATION_SHEETNAME.lower() in self.sheet_name.lower():
@@ -103,18 +116,20 @@ class InputAnalyzer:
         """
         
         points = [
-            {"row": point.row, 
-            "point_n": self.evaluate(point), 
-            "date": self.ws[self.DATE_COL+str(point.row)].value} 
+            {"row": point.row, "point_n": self.evaluate(point), "date": self.ws[self.DATE_COL+str(point.row)].value } 
             for point in self.ws[self.POINT_N_COL] 
             if point.value is not None and (isinstance(point.value, (int, float)) or (isinstance(point.value, str) and point.value.startswith("=")))
-            ]
+        ]
         
         # Check if exist at least 2 dates in points
-        valid_points = list(filter(lambda pt: pt["date"] is not None, points))
+        valid_points = [ pt for pt in points if pt["date"] is not None ]
         if len(valid_points) >= 2:
             x = list(range(len(valid_points)))
-            y = list(map(datetime.datetime.timestamp, [pt["date"] for pt in valid_points]))
+            try:
+                y = list(map(datetime.datetime.timestamp, [pt["date"] for pt in valid_points]))
+            except Exception as e:
+                print(e)
+                raise e
             interp1d = interpolate.interp1d(x, y, fill_value="extrapolate")
             interpolated_timestamps = interp1d(x)
             for pt, interpolated_timestamp in zip(valid_points, interpolated_timestamps):
@@ -210,11 +225,11 @@ class InputAnalyzer:
         """
         ref_date = None
         for index, point in enumerate(points):
-            if point["date"] is not None:
+            if point["date"] :
                 ref_date = {"index": index, "date": point["date"]}
                 break
         
-        if ref_date is not None:
+        if ref_date :
             for index, point in enumerate(points):
                 if point["date"] is None:
                     if index < ref_date["index"]:
@@ -248,27 +263,27 @@ class InputAnalyzer:
         values = self._getValuesBySpecificiation(specification)
         
         if (specification["interpolation"] == "CONST" and len(values) > 0) or (specification["interpolation"] is None and len(values) == 1):
-            return [next(item["value"] for item in values if item["value"] is not None)] * len(self.points)
+            result = [next(item["value"] for item in values if item["value"] is not None)] * len(self.points)
         elif len(values) >= 2:
-            # Linear Interpolation by default
-            interp1d = interpolate.interp1d([v["row"] for v in values], [v["value"] for v in values], fill_value="extrapolate")
-            
-            # Log interpolation
+            xs, ys = [v["row"] for v in values], [v["value"] for v in values]           
             if specification["interpolation"] == "LOG":
-                interp1d = self.log_interp1d([v["row"] for v in values], [v["value"] for v in values])
+                interp1d = self.log_interp1d(xs, ys)
+            else:
+                interp1d = interpolate.interp1d(xs,ys, fill_value="extrapolate")
 
             # Add result of interpolation for each point
-            for point in self.points:
-                if not any(v["row"] == point["row"] for v in values):
-                    result.append(round(float(interp1d(point["row"])), 3))
-                else:
-                    result.append(list(filter(lambda v: v["row"] == point["row"], values))[0]["value"])
+            result = [ float(interp1d(point["row"])) for point in self.points]
+            # for point in self.points:
+            #     if not any(v["row"] == point["row"] for v in values):
+            #         result.append(round(float(interp1d(point["row"])), 3))
+            #     else:
+            #         result.append(list(filter(lambda v: v["row"] == point["row"], values))[0]["value"])
                     
         return result
 
     # Init Functions
 
-    def create(self):
+    def loadSheet(self):
         """
             Return JSON storage of the input
         """
@@ -288,6 +303,7 @@ class InputAnalyzer:
             self._generateSummary()
             return True
 
+        # "Curves" sheet
         # Get all elements in worksheet
         self.metadatas = self._generateMetaData()
         self.points = self._generatePointsWithDates()
@@ -296,7 +312,7 @@ class InputAnalyzer:
         if self.isSpecificationSheet() and self.metadatas == {}:
             raise Exception("Metadatas are missing...{}".format(self.sheet_name))
 
-        # Add Interpolate values  
+        # Interpolate values  
         for specification in self.specifications:
             specification["values"] = self._evaluateInterpolation(specification)       
         
@@ -372,89 +388,87 @@ class SheetTree:
         self.all_sheet = None
         self.operation_sheets = []
 
-    def analyzeAllSheet(self, path):
+    def readAllSheetsFromFolder(self, folder):
         """
         Return dict with {file: {sheetname: analyzer}}
         """
         result = {}
 
         # Load all workbooks
-        all_files = next(os.walk(path), (None, None, []))[2]
-        all_wks = {file: load_workbook(path + file) for file in all_files}
+        all_files = next(os.walk(folder), (None, None, []))[2]
+        all_wks = {file: load_workbook(folder +'/'+ file) for file in all_files if file.endswith('.xlsx')}
         
         # Create dict with file: {sheetname: analyzer}
         for file, wb in all_wks.items():
             result[file] = []
-            for sheet_name in all_wks[file].sheetnames:
-                analyzer = InputAnalyzer(wb[sheet_name], sheet_name, path + file)
-                if analyzer.create():
-                    result[file].append({sheet_name: analyzer})
+            for sheet_name in wb.sheetnames:
+                analyzer = InputAnalyzer(wb[sheet_name], sheet_name, folder + '/' + file)
+                if analyzer.loadSheet():
+                    result[file].append((sheet_name, analyzer,))
 
         return result
 
-    def mapSheetToTree(self, path=None):
+    def mapSheetsToFormulaTree(self, path=None):
         """
-        Add sheets in path to the tree, path not define default self.path sheet are add else it's personalize sheet's path
+        Add sheets in path to the tree.
+        default self.path sheet are add else it's personalize sheet's path
         """
-        liste = []
-
-        self.all_sheet = self.analyzeAllSheet(path if path is not None else self.path)
+        if not path:
+            path = self.path
+        nodes = []
+        self.all_sheet = self.readAllSheetsFromFolder(path)
         # Create all nodes
-        for file in self.all_sheet:
-            for sheet in self.all_sheet[file]:
-                for sheet_name, analyzer in sheet.items():
-                    if analyzer.isOperationSheet():
-                        self.operation_sheets.append(analyzer)
-                        continue
-                
-                    if analyzer.isConstantSheet():
-                        Node(sheet_name, analyzer=analyzer, parent=self.root)
-                        continue
+        for _file, wbSheets in self.all_sheet.items():
+            for sheet_name, analyzer in wbSheets:
+                if analyzer.isOperationSheet():
+                    self.operation_sheets.append(analyzer)
+                    continue
+            
+                if analyzer.isConstantSheet():
+                    Node(sheet_name, analyzer=analyzer, parent=self.root)
+                    continue
 
-                    if analyzer.isSummarySheet():
-                        if not hasattr(self.root, "analyzer"):
-                            self.root.analyzer = analyzer
-                        else:
-                            # Delete summary value with same key that root_summary
-                            for root_summary in self.root.analyzer.summary:
-                                for summary in analyzer.summary:
-                                    if root_summary["summary_name"].lower() == summary["summary_name"].lower():
-                                        del summary
-                            # Merge summaries values
+                if analyzer.isSummarySheet():
+                    if not hasattr(self.root, "analyzer"):
+                        self.root.analyzer = analyzer
+                    else:
+                        # Delete summary value with same key that root_summary
+                        for root_summary in self.root.analyzer.summary:
                             for summary in analyzer.summary:
-                                self.root.analyzer.summary.append(summary)
-                                                            
-                        continue
+                                if root_summary["summary_name"].lower() == summary["summary_name"].lower():
+                                    del summary
+                        # Merge summaries values
+                        for summary in analyzer.summary:
+                            self.root.analyzer.summary.append(summary)
+                                                        
+                    continue
 
-                    if analyzer.metadatas == {}:
-                        continue
+                if analyzer.metadatas == {}:
+                    continue
+                
+                # last Case is a "Curves" sheet
+                # Get parent name if exists
+                parentName = analyzer.metadatas[analyzer.PRODUCT_PARENT] if (analyzer.PRODUCT_PARENT in analyzer.metadatas) else None
                     
-                    # Get parent name if exist
-                    parent_name = analyzer.metadatas[analyzer.PRODUCT_PARENT] if (analyzer.PRODUCT_PARENT in analyzer.metadatas) else None
-                        
-                    node = Node(analyzer.metadatas[analyzer.PRODUCT_NAME], analyzer=analyzer)
-                    
-                    # Get and add category to self.root.categories if exist
-                    category = analyzer.getCategory()
-                    if category is not None:
-                        self.root.categories[category.lower()] = category.upper()+":"
-                        node.category = category.lower()
-                                                
-                    liste.append(
-                        (parent_name,
-                        analyzer.metadatas[analyzer.PRODUCT_NAME],
-                        node
-                    ))
+                productType = analyzer.metadatas[analyzer.PRODUCT_NAME]
+                node = Node(productType, analyzer=analyzer)
+                
+                # Get and add category to self.root.categories if exist
+                category = analyzer.getCategory()
+                if category is not None:
+                    self.root.categories[category.lower()] = category.upper()+":"
+                    node.category = category.lower()
+                                            
+                nodes.append( (parentName, productType, node ) )
         
         # Add parent for all nodes
-        for element in liste:
-            # if no parent
-            if element[0] is None:
+        for element in nodes:
+            if element[0] is None: # if no parentName
                 element[2].parent = self.root
             else:
-                i = [i for i, v in enumerate(liste) if v[1] == element[0] and element[2].category == v[2].category]
+                i = [i for i, v in enumerate(nodes) if v[1] == element[0] and element[2].category == v[2].category]
                 if i != []:
-                    element[2].parent = liste[i[0]][2]
+                    element[2].parent = nodes[i[0]][2]
 
 class SheetInterpreter:
 
@@ -471,8 +485,8 @@ class SheetInterpreter:
 
     def __init__(self, folder) -> None:
         self.tree = SheetTree(folder)
-        self.tree.mapSheetToTree()
-        self.node_categories = list(map(lambda x: x.lower(), list(self.tree.root.categories.keys())))
+        self.tree.mapSheetsToFormulaTree()
+        self.node_categories = list(self.tree.root.categories.keys()) # list(map(lambda x: x.lower(), list(self.tree.root.categories.keys())))
         self.operations = {cat: [] for cat in self.node_categories}
         self.operations["root"] = []
     
@@ -551,7 +565,7 @@ class SheetInterpreter:
                     # make an average of each interpolate's values 
                     return mean(spec["values"])
             else:
-                raise Exception('Error :',word, node, operation_category, dst, attr, node.analyzer.specifications)
+                raise Exception('Error: replaceOneVarByValue()', word, node, operation_category, dst, attr, node.analyzer.specifications)
         
         return None
 
@@ -579,7 +593,7 @@ class SheetInterpreter:
 
                 # if operation exist in list operation, add the value of it in it
                 if len(attr) > 2:
-                    raise Exception("unknown function syntax for :", attr)
+                    raise Exception("unknown function syntax for:", attr)
                 
                 if len(attr) == 1:
                     attr.insert(0, operation_category)
@@ -614,7 +628,10 @@ class SheetInterpreter:
                 matches = re.finditer(self.FCN_EXPR, operation["operation"])
             else:
                 matches = None
-        
+        try:
+            operation["operation"] = str(round(eval(operation["operation"]), 10))
+        except:
+            pass
         return operation
 
     def mapOperationValues(self, list_operations, operation_category, dst):
@@ -655,7 +672,7 @@ class SheetInterpreter:
                 for dst, stored_operations in self.operations.items():
                     values = self.mapOperationValues(l_operations, operation_category, dst)
 
-                    if values is not None:
+                    if values:
                         stored_operations.append(values) 
 
     # Render functions
@@ -673,10 +690,12 @@ class SheetInterpreter:
                     for operation in operations:
                         try:
                             # Attention si l'user met rm -rf * par exemple !!
-                            operation["operation"] = round(eval(str(operation["operation"])), 4)                            
+                            # logging.log(operation["operation"])
+                            operation["operation"] = round(eval(str(operation["operation"])), 4)
+                            # logging.log(operation["operation"])
                             if operation["node_category"].analyzer.isSummarySheet():
                                 operation["node_category"].analyzer.addSummary(operation["operation_name"], operation["operation"], operation["unit"])
-                            if operation["node_category"].analyzer.isSpecificationSheet():
+                            elif operation["node_category"].analyzer.isSpecificationSheet():
                                 operation["node_category"].analyzer.addSpecification(operation["operation_name"], operation["operation"], operation["unit"], "CONST")
                         except Exception as e:
                             raise Exception("Error for evaluation of operations", operation, e)                        
@@ -900,59 +919,49 @@ class OutputAnalyzer:
 
 class SheetOutputGenerator:
 
-    def __init__(self, input_path, output_path) -> None:
+    def __init__(self, interpreter, output_path) -> None:
         self.output_path = output_path
-        self.interpreter = SheetInterpreter(input_path)
-        self.interpreter.evaluate()
+        # self.interpreter = SheetInterpreter(input_path)
+        # self.interpreter.evaluate()
+        self.interpreter = interpreter
+        self.all_sheets = None
 
     def analyzeAllOutputSheet(self):
         """
-        Return dict with file: {sheetname: analyzer} 
-        """
-        result = {}
-        
+        Sets self.all_sheets = { file : {sheetname: analyzer} }
+        """        
         # Load all workbooks
         all_files = next(os.walk(self.output_path), (None, None, []))[2]
-        all_wks = {file: load_workbook(self.output_path + file) for file in all_files}
+        all_wks = {file: load_workbook(self.output_path + file) for file in all_files if file.endswith('.xlsx')}
         
         # Create dict with file: {sheetname: analyzer}
+        self.all_sheets = {}
         for file, wb in all_wks.items():
-            result[file] = {sheet_name: OutputAnalyzer(wb, sheet_name, self.output_path + file, self.interpreter) for sheet_name in all_wks[file].sheetnames}
+            sheetsDic = {
+                sheet_name: OutputAnalyzer(wb, sheet_name, self.output_path + file, self.interpreter)
+                for sheet_name in all_wks[file].sheetnames
+            }
+            self.all_sheets[file] = sheetsDic
             
-        return result
 
-    @staticmethod
-    def createZip(to, name):
-        """
-        Create zip of a folder and return name.zip path
-        """
-        directory = pathlib.Path(to)
-        destination = str(directory.parent.absolute())+"/"+name+".zip"
-
-        with zipfile.ZipFile(destination, mode="w") as archive:
-            for file_path in directory.iterdir():
-                archive.write(file_path, arcname=file_path.name)
-        return destination
-
-    def generate(self, folder, name):
+    def generate(self, folder, zip_fn):
         """
         Generate final output xlsx
+        :return: path to zip file
         """
-        all_sheets = self.analyzeAllOutputSheet()
+        from pathlib import Path
+        os.makedirs(folder, exist_ok=True)
 
-        # Create folder is not exist
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-
-        # Replace var in output model folder by values and return a zip file of all of them
+        # Replace var in output model folder by values
         count = 0
-        for file, sheets in all_sheets.items():
+        for fPath, sheets in self.all_sheets.items():
             count +=1
+            fn = Path(fPath).stem
             for sheet_name, analyzer in sheets.items():
                 analyzer.findAndReplaceAnnotateValues()
-                analyzer.save(folder+"simulation_"+str(count)+".xlsx")
+                analyzer.save(f"{folder}/{fn}.xlsx")
 
-        return SheetOutputGenerator.createZip(folder, name)
+        return folder_zip(folder, zip_fn)
 
 class FileChecker:
     def __init__(self, path) -> None:

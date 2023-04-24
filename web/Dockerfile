@@ -8,6 +8,7 @@ RUN apt update -y && apt install python3 -y \
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 WORKDIR /code
-COPY . /code/
+COPY requirements.txt /code/
 
 RUN pip3 install -r requirements.txt
+COPY . /code/
