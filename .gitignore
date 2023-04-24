@@ -6,3 +6,5 @@ web/static/
 
 web/simulator/static/
 ___*
+web/*/static/ckeditor/*
+**/static/ckeditor/*
