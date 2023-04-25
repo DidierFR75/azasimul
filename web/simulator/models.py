@@ -14,8 +14,8 @@ class Enums:
         ("Mobility Applications", "Mobility Applications")
     )
 
-MODEL_INPUT_FILES = settings.MEDIA_ROOT + "/models/input/"
-MODEL_OUTPUT_FILES = settings.MEDIA_ROOT +"/models/output/"
+MODEL_INPUT_PATH = settings.MEDIA_ROOT + "/models/input/"
+MODEL_OUTPUT_PATH = settings.MEDIA_ROOT +"/models/output/"
 
 class Simulation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -25,8 +25,8 @@ class Simulation(models.Model):
     project_name = models.CharField(max_length=255, unique=True, blank=True)
     project_description = RichTextField(blank=True)
     project_type = models.CharField(max_length=100, blank=True, choices=Enums.SIMULATION_TYPES, default=Enums.SIMULATION_TYPES[0][0])
-    start = models.DateTimeField(blank=False)
-    end = models.DateTimeField(blank=False)
+    start = models.DateTimeField(blank=True)
+    end = models.DateTimeField(blank=True)
 
     def __str__(self) -> str:
         return self.title

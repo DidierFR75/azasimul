@@ -55,7 +55,7 @@ $ make deploy
 You can put the essential information of the project in an excel sheet with the name: **summary**
 The system will consider that the first column corresponds to the name of an expected field and the following column will correspond to the value of this field.
 
-## Specifications Datas
+## Curves Datas
 
 Metadatas :
 
@@ -86,17 +86,21 @@ The **constants** have the following format :
 | ----------------- | ------------- |:------:| ----- |
 | Dimensions        | Length        |  9.1   | cm    |
 
-The **operations** have the following format:
+The **formulas** specifications have the following format:
 
-| Composition name  | Operation name                   | Operation definition                                                 | Unit  |
+| Composition name  | Formula name                     | Formula definition                                                 | Unit  |
 | ----------------- | -------------------------------- |:--------------------------------------------------------------------:| ----- |
 | Cell              | Nominal Capacity                 | { Weight } * [Energy Density (gravimetric)]                          | Wh    |
 | BatteryPack       | Width                            | [Cell Quantity]*[Casing.Cell interspace]*[Cell.Width]+[Casing.Width] | mm    |
 | BatteryPack       | Volume Overhead (Packs vs Cells) | {Cell.Energy density (volumetric)}/{Energy density (volumetric)}-1   |       |
 
-Variables are defined by [name] and represent a specification to be provided by the user, [Composition_name.name] represents a variable present in Composition_name.
+Constants are represented like: [Constants.Global.DC_required_kWh]
 
-Functions are defined by {name} and represent a previously defined function in the current composition, {Composition_name.name} represents a function defined in Composition_name.
+Curve data is represented by [name].
+[Composition_name.name] represents a variable present in Composition_name.
+
+Formulas are represented by {formulaName} and represent a previously defined formula in the current composition.
+{Composition_name.name} represents a formula defined in Composition_name.
 
 If the variable is not defined in the Excel sheet then the algorithm retrieves the values of the children multiplied by the quantity of children. This quantity is defined in the parent sheet with the following nomenclature : CHILD Quantity (1 by default).
 

@@ -22,7 +22,7 @@ class SimulationForm(forms.ModelForm):
 	class Meta:
 		model = Simulation
 		fields = '__all__'
-		exclude = ('created_at', "updated_at", "user")
+		exclude = ('created_at', "updated_at", "user", "start", "end")
 		widgets = {
             'input_files': ClearableFileInput(attrs={'multiple': True})
         }

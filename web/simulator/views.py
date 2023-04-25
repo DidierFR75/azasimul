@@ -18,8 +18,8 @@ from django.conf import settings
 from django.http import Http404
 
 from .forms import NewUserForm, SimulationForm
-from .models import Simulation, SimulationInput, MODEL_INPUT_FILES,MODEL_OUTPUT_FILES
-from .interpreter import FileChecker, SheetOutputGenerator, SheetInterpreter, folder_zip
+from .models import Simulation, SimulationInput, MODEL_INPUT_PATH, MODEL_OUTPUT_PATH
+from .interpreter import rejectXlsFile, FileChecker, SheetOutputGenerator, SheetInterpreter, folder_zip, reject_file
 
 from openpyxl import Workbook, load_workbook
 
@@ -27,6 +27,7 @@ import os
 import zipfile
 import shutil
 import datetime
+
 
 @login_required(login_url="simulator:login")
 def index(request):
@@ -37,6 +38,8 @@ def WS_update_fromForm(simul_id, form):
     # Modify excel file according to the database properties
     input_path = Simulation.getPath(simul_id,'inputs')
     for model_file in os.listdir(input_path):
+        if reject_file(model_file):
+            continue
         wb_path = input_path+"/"+model_file
         wb = load_workbook(wb_path)
         wb.iso_dates = True
@@ -225,15 +228,17 @@ def doCompute(request, simul_id, downloadInputs=False):
         zip_path = folder_zip(input_path, zip_fn)
     else:
         # Copy default .xlsx files (Common Operations, Financial...)
-        for fn in os.listdir(MODEL_INPUT_FILES):
-            src = MODEL_INPUT_FILES + fn
+        for fn in os.listdir(MODEL_INPUT_PATH):
+            if rejectXlsFile(fn):
+                continue
+            src = MODEL_INPUT_PATH + fn
             dst = f"{input_path}/{fn}"
             shutil.copyfile(src, dst)
 
         interpreter = SheetInterpreter(input_path)
         interpreter.evaluate()
         # Generate output files
-        generator = SheetOutputGenerator(interpreter, MODEL_OUTPUT_FILES)
+        generator = SheetOutputGenerator(interpreter, MODEL_OUTPUT_PATH)
         generator.analyzeAllOutputSheet()
         result_path = Simulation.getPath(simul_id,'outputs')
         zip_fn = f"SimAZA_{simulation.project_name}_{simulation.created_at.strftime('%Y-%m-%d')}"
@@ -270,16 +275,16 @@ def listDownloadData(request, id):
 # Add Questions/Constants page
 @login_required(login_url="simulator:login")
 def index_co(request, type):
-    model = MODEL_INPUT_FILES if type == 'input' else MODEL_OUTPUT_FILES
+    model = MODEL_INPUT_PATH if type == 'input' else MODEL_OUTPUT_PATH
 
     return render(request, 'co/index.html', {
-        "models": os.listdir(model),
+        "models": [fn for fn in os.listdir(model) if not rejectXlsFile(fn)],
         "type": type
     })
 
 @login_required(login_url="simulator:login")
 def new_co(request, type):
-    model = MODEL_INPUT_FILES if type == 'input' else MODEL_OUTPUT_FILES
+    model = MODEL_INPUT_PATH if type == 'input' else MODEL_OUTPUT_PATH
     if request.method == "POST":
         # Save file uploaded
         files = request.FILES.getlist('files')
@@ -293,7 +298,7 @@ def new_co(request, type):
 
 @login_required(login_url="simulator:login")
 def download_co(request, type, name):
-    model = MODEL_INPUT_FILES if type == 'input' else MODEL_OUTPUT_FILES
+    model = MODEL_INPUT_PATH if type == 'input' else MODEL_OUTPUT_PATH
 
     path = model+name
     if os.path.exists(path):
@@ -305,7 +310,7 @@ def download_co(request, type, name):
    
 @login_required(login_url="simulator:login")
 def delete_co(request, type, name):
-    model = MODEL_INPUT_FILES if type == 'input' else MODEL_OUTPUT_FILES
+    model = MODEL_INPUT_PATH if type == 'input' else MODEL_OUTPUT_PATH
 
     path = model+name
     if os.path.exists(path):

@@ -20,6 +20,51 @@ from copy import copy, deepcopy
 import copy
 from dateutil.relativedelta import relativedelta
 
+import logging
+logging.config.dictConfig({
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'console': {
+            'format': '%(name)-12s %(levelname)-8s %(message)s'
+        },
+        'file': {
+            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
+        }
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'console'
+        },
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'formatter': 'file',
+            'filename': './logs/log.log'
+        }
+    },
+    'loggers': {
+        '': {
+            'level': 'DEBUG',
+            'handlers': ['console', 'file']
+        }
+    }
+})
+logger = logging.getLogger(__name__)
+
+def rejectXlsFile(fn):
+    if fn.startswith(".") or fn.startswith(InputAnalyzer.DELIMITER_SHEET_UNFOLLOW) or not fn.endswith('.xlsx'):
+        return True
+    return False
+
+def reject_file(file_path):
+    fn = os.path.basename(file_path)
+    if rejectXlsFile(fn):
+        return True
+    return False
+
+
 def folder_zip(folderPath, zip_fn):
     """
     Create <zip_fn>.zip of a folder and return path
@@ -29,6 +74,8 @@ def folder_zip(folderPath, zip_fn):
 
     with zipfile.ZipFile(destination, mode="w") as archive:
         for file_path in directory.iterdir():
+            if reject_file(file_path):
+                continue
             archive.write(file_path, arcname=file_path.name)
     return destination
 
@@ -55,7 +102,7 @@ class InputAnalyzer:
         self.sheet_name = sheet_name
         self.ws = ws
 
-        self.specifications = []
+        self.curves = []
         self.points = []
         self.metadatas = {}
         self.operations = {}
@@ -103,8 +150,8 @@ class InputAnalyzer:
             return True
         return False
 
-    def isSpecificationSheet(self):
-        if self.specifications != [] and self.points != []:
+    def isCurvesSheet(self):
+        if self.curves != [] and self.points != []:
             return True
         return False
 
@@ -141,14 +188,14 @@ class InputAnalyzer:
         else:
             return self._fullFillPointsWithDates(points)
 
-    def _generateSpecifications(self):
+    def _generateCurves(self):
         """
-        Return a sorted (by ASC) dict (column, specification, unit, interpolation) at BASE_ELEMENTS_ROW for a given sheetname
-        Ignore the firsts 2 elements because they always not belong to specifications
+        Return a sorted (by ASC) dict (column, curve, unit, interpolation) at BASE_ELEMENTS_ROW for a given sheetname
+        Ignore the firsts 2 elements because they always not belong to Curves
         """
         return sorted([{
             "column": be.column, 
-            "specification_name": self.clean_string(be.value),
+            "curve_name": self.clean_string(be.value),
             "values": None,
             "unit": self.ws.cell(row=self.UNIT_ROW, column=be.column).value, 
             "interpolation": self.ws.cell(row=self.CURVE, column=be.column).value
@@ -239,11 +286,11 @@ class InputAnalyzer:
         
         return points
      
-    def _getValuesBySpecificiation(self, specification):
+    def _getValuesByCurve(self, curve):
         result = []
         value = None
         for point in self.points:
-            cell = self.ws.cell(row=point["row"], column=specification["column"])
+            cell = self.ws.cell(row=point["row"], column=curve["column"])
             if cell.value is not None and cell.value != "#REF!":
                 if isinstance(cell.value, str):
                     if cell.value.startswith("="):
@@ -258,15 +305,15 @@ class InputAnalyzer:
                 })
         return result 
 
-    def _evaluateInterpolation(self, specification):
+    def _evaluateInterpolation(self, curve):
         result = []
-        values = self._getValuesBySpecificiation(specification)
+        values = self._getValuesByCurve(curve)
         
-        if (specification["interpolation"] == "CONST" and len(values) > 0) or (specification["interpolation"] is None and len(values) == 1):
+        if (curve["interpolation"] == "CONST" and len(values) > 0) or (curve["interpolation"] is None and len(values) == 1):
             result = [next(item["value"] for item in values if item["value"] is not None)] * len(self.points)
         elif len(values) >= 2:
             xs, ys = [v["row"] for v in values], [v["value"] for v in values]           
-            if specification["interpolation"] == "LOG":
+            if curve["interpolation"] == "LOG":
                 interp1d = self.log_interp1d(xs, ys)
             else:
                 interp1d = interpolate.interp1d(xs,ys, fill_value="extrapolate")
@@ -289,50 +336,55 @@ class InputAnalyzer:
         """
 
         if self.sheet_name.startswith(self.DELIMITER_SHEET_UNFOLLOW):
+            logger.info(f"loadSheet('{self.sheet_name}') : SKIPPED")
             return False
 
         if self.isOperationSheet():
+            logger.info(f"loadSheet('{self.sheet_name}') : Formulas_Sheet")
             self.operations = self._generateOperations()
             return True
 
         if self.isConstantSheet():
+            logger.info(f"loadSheet('{self.sheet_name}') : Constants_Sheet")
             self.constants = self._generateConstants()
             return True
 
         if self.isSummarySheet():
+            logger.info(f"loadSheet('{self.sheet_name}') : Summary_Sheet")
             self._generateSummary()
             return True
 
-        # "Curves" sheet
+        logger.info(f"loadSheet('{self.sheet_name}') : Curves_Sheet")
+
         # Get all elements in worksheet
         self.metadatas = self._generateMetaData()
         self.points = self._generatePointsWithDates()
-        self.specifications = self._generateSpecifications()
+        self.curves = self._generateCurves()
         
-        if self.isSpecificationSheet() and self.metadatas == {}:
+        if self.isCurvesSheet() and self.metadatas == {}:
             raise Exception("Metadatas are missing...{}".format(self.sheet_name))
 
         # Interpolate values  
-        for specification in self.specifications:
-            specification["values"] = self._evaluateInterpolation(specification)       
+        for curve in self.curves:
+            curve["values"] = self._evaluateInterpolation(curve)       
         
         return True
     
     # Add Functions
 
-    def addSpecification(self, specifcation_name, value, unit, interpolation="CONST"):
+    def addCurve(self, specifcation_name, value, unit, interpolation="CONST"):
         """
-        Add new Specification to the analyzer, if specification exists we do nothing
+        Add new Curve to the analyzer, if curve exists we do nothing
         """
 
-        if self.getSpecificationByName(specifcation_name) is not None:
+        if self.getCurveByName(specifcation_name) is not None:
             return None
 
-        next_free_column = self.specifications[-1]["column"]+1
+        next_free_column = self.curves[-1]["column"]+1
 
-        self.specifications.append({
+        self.curves.append({
             "column": next_free_column,
-            "specification_name": self.clean_string(specifcation_name),
+            "curve_name": self.clean_string(specifcation_name),
             "values": [value] * len(self.points), 
             "unit": unit if unit is not None else "",
             "interpolation": interpolation
@@ -350,10 +402,10 @@ class InputAnalyzer:
 
     # Access Functions
 
-    def getSpecificationByName(self, name):
-        res = next((item for item in self.specifications if self.clean_string(item["specification_name"].lower()) == self.clean_string(name.lower())), None)
+    def getCurveByName(self, name):
+        res = next((item for item in self.curves if self.clean_string(item["curve_name"].lower()) == self.clean_string(name.lower())), None)
         if res is not None :
-            res["specificiation_name"] = self.clean_string(res["specification_name"])
+            res["specificiation_name"] = self.clean_string(res["curve_name"])
         return res
         
     def getConstantByName(self, name):
@@ -396,12 +448,16 @@ class SheetTree:
 
         # Load all workbooks
         all_files = next(os.walk(folder), (None, None, []))[2]
-        all_wks = {file: load_workbook(folder +'/'+ file) for file in all_files if file.endswith('.xlsx')}
+        all_files = [ fn for fn in all_files if not rejectXlsFile(fn) ]
+        all_wks = { file: load_workbook(folder +'/'+ file) for file in all_files }
         
         # Create dict with file: {sheetname: analyzer}
         for file, wb in all_wks.items():
             result[file] = []
             for sheet_name in wb.sheetnames:
+                if sheet_name.startswith(InputAnalyzer.DELIMITER_SHEET_UNFOLLOW):
+                    logger.info(f"Sheet('{sheet_name}') : SKIPPED")
+                    continue
                 analyzer = InputAnalyzer(wb[sheet_name], sheet_name, folder + '/' + file)
                 if analyzer.loadSheet():
                     result[file].append((sheet_name, analyzer,))
@@ -470,6 +526,23 @@ class SheetTree:
                 if i != []:
                     element[2].parent = nodes[i[0]][2]
 
+def findNode(treeRoot, category, scope, verbose=False):
+    catCode = category.lower()
+    nodes = None
+    if scope:
+        nodes = findall(treeRoot, lambda node: node.name.lower() == catCode and hasattr(node, 'category') and node.category == scope)
+        if not nodes and scope == "root":
+            nodes = findall(treeRoot, lambda node: node.name.lower() == catCode and not hasattr(node, 'category'))
+        if len(nodes)>1 and verbose:
+            logger.error(f"!!! nodes_according_to_category({catCode}) Scope({scope}).length()>1")
+    if not nodes:
+        nodes = findall(treeRoot, lambda node: node.name.lower() == catCode) 
+        if not nodes:
+            raise Exception(f"Cannot find sheet '{catCode}' in the tree... with Scope '{scope}'")
+
+    node = nodes[0] if nodes else nodes
+    return node
+
 class SheetInterpreter:
 
     FILTERS_DISPATCH = {
@@ -492,48 +565,58 @@ class SheetInterpreter:
     
     # Utils functions
 
-    def findOperation(self, operation_category, operation_name):
+    def findOperation(self, category, operation_name):
         """
         Find an operation by it category and it operation_name 
         """
         for analyzer in self.tree.operation_sheets:
-            for analyzer_operation_category, operations in analyzer.operations.items():
-                if analyzer_operation_category.lower() == operation_category.lower():
+            for analyzer_category, operations in analyzer.operations.items():
+                if analyzer_category.lower() == category.lower():
                     return next((operation for operation in operations if operation["operation_name"].lower() == operation_name.lower()), None)
         return None
 
     def convertFilter(self, value, unit, filter):
         """
         Convert value by it filter
-        Ex : 01/01/2022|year = 2022
+        Ex : datetime(01/01/2022)|year = 2022
         """
-        if unit.lower() in self.FILTERS_DISPATCH and filter.lower() in self.FILTERS_DISPATCH[unit]:
-            return self.FILTERS_DISPATCH[unit.lower()][filter.lower()](value)
+        try:
+            func = self.FILTERS_DISPATCH[unit.lower()][filter.lower()]
+            value = func(value)
+        except: pass
         return value
 
     # Functions to search and replace variables and functions
 
-    def replaceOneVarByValue(self, word, node, operation_category, dst):
+    def replaceOneVarByValue(self, word, default_node, category, scope):
         """
         Replace Word by his Variable Value in the according worksheet
         """
 
-        if word is None or node is None or operation_category is None:
+        if word is None or category is None:
             raise Exception("replaceOneVarByValue need all paramaters fill...")
         
         correct_word = word.replace("[", "").replace("]", "")
         attr = correct_word.split('.')
 
         if len(attr) == 1:
-            attr.insert(0, operation_category)
+            attr.insert(0, category)
 
         if len(attr) > 1:
-            node = findall(self.tree.root, lambda node: node.name.lower() == attr[0].lower()) 
+            node = findNode(self.tree.root, attr[0], scope)
+            # nodes = findall(self.tree.root, lambda node: node.name.lower() == attr[0].lower()) 
 
-            if node == () or node is None:
-                raise Exception("The sheet {} doesn't map in the tree... with category {}".format(attr[0], operation_category))
+            # if not nodes:
+            #     raise Exception(f"Cannot find sheet '{attr[0]}' in the tree... with category '{category}'")
 
-            node = find(self.tree.root, lambda n: hasattr(n, "category") and n.category == dst and n.name.lower() == attr[0].lower()) if len(node) > 1 else node[0]
+            # if len(nodes) > 1:
+            #     node = find(self.tree.root, lambda n: hasattr(n, "category") and n.category == dst and n.name.lower() == attr[0].lower())
+            #     if not node:
+            #         node = nodes[0]
+            # else:
+            #     node = nodes[0]
+        else:
+            node = default_node
 
         # It is a constant
         if len(attr) == 3 and node.analyzer.isConstantSheet():
@@ -548,15 +631,15 @@ class SheetInterpreter:
 
             summary = node.analyzer.getSummaryByName(cw[0])
 
-            if summary is not None and summary != {}:
+            if summary:
                 if len(cw) == 2:
                     return self.convertFilter(summary["summary_value"], summary["unit"], cw[1])
                     
                 return summary["summary_value"]
             return None
 
-        if node.analyzer.isSpecificationSheet():
-            spec = node.analyzer.getSpecificationByName(attr[1])
+        if node.analyzer.isCurvesSheet():
+            spec = node.analyzer.getCurveByName(attr[1])
             
             if spec is not None:
                 if spec["interpolation"] == "CONST":
@@ -565,24 +648,30 @@ class SheetInterpreter:
                     # make an average of each interpolate's values 
                     return mean(spec["values"])
             else:
-                raise Exception('Error: replaceOneVarByValue()', word, node, operation_category, dst, attr, node.analyzer.specifications)
+                raise Exception('Error: replaceOneVarByValue()', word, node, category, scope, attr, node.analyzer.curves)
         
         return None
 
-    def replaceAllVarsByValue(self, origin_operation, nodes_according_to_operation_category, operation_category, dst):
-        # Replace first all vars [] by value in result
-        operation = copy.deepcopy(origin_operation)
+    # def replaceAllVarsByValue(self, origin_operation, default_node, category, scope):
+    #     # Replace first all vars [] by value in result
+    #     operation = copy.deepcopy(origin_operation)
 
-        for m in re.finditer(self.VAR_EXPR, operation["operation"]):
-            operation["operation"] = operation["operation"].replace(m.group(0), str(self.replaceOneVarByValue(m.group(0), nodes_according_to_operation_category, operation_category, dst)))
+    #     for m in re.finditer(self.VAR_EXPR, operation["operation"]):
+    #         operation["operation"] = operation["operation"].replace(m.group(0), str(self.replaceOneVarByValue(m.group(0), default_node, category, scope)))
         
-        return operation
+    #     return operation
+    
+    def replaceAllVarsByValue(self, opStr, default_node, category, scope):
+        # Replace first all vars [] by value in result
+        for m in re.finditer(self.VAR_EXPR, opStr):
+            opStr = opStr.replace(m.group(0), str(self.replaceOneVarByValue(m.group(0), default_node, category, scope)))
+        return opStr
 
-    def replaceFcnByVar(self, operation, operation_category, dst):
+    def replaceFcnByVar(self, opStr, category, scope):
         """
-            Replace all fcn {} by value and return full variable operation
+            Replace all fcn {} by value
         """
-        matches = re.finditer(self.FCN_EXPR, operation["operation"])
+        matches = re.finditer(self.FCN_EXPR, opStr)
         while matches is not None:
             for match in matches:
                 according_op = None
@@ -596,7 +685,7 @@ class SheetInterpreter:
                     raise Exception("unknown function syntax for:", attr)
                 
                 if len(attr) == 1:
-                    attr.insert(0, operation_category)
+                    attr.insert(0, category)
                 
                 according_op = self.findOperation(attr[0], attr[1])
 
@@ -608,69 +697,73 @@ class SheetInterpreter:
                 if according_op is not None and related_nodes != ():
                     for wks in related_nodes:                            
                         # Transform all {} in children by interpretable {}
-                        for m in re.finditer(self.FCN_EXPR, according_op["operation"]):
+                        accStr = according_op["operation"]
+                        for m in re.finditer(self.FCN_EXPR, accStr):
                             rpl = m.group(0).replace("{", "").replace("}", "").strip()
 
                             if len(rpl.split(".")) == 1:
-                                according_op["operation"] = according_op["operation"].replace(m.group(0), "{"+attr[0]+"."+rpl+"}")
+                                accStr = accStr.replace(m.group(0), "{"+attr[0]+"."+rpl+"}")
 
-                        according_op = self.replaceAllVarsByValue(according_op, wks, attr[0], dst)
+                        accStr = self.replaceAllVarsByValue(accStr, wks, attr[0], scope)
                         
-                        operation["operation"] = operation["operation"].replace(match.group(0), "("+ according_op["operation"]+ ")")
+                        opStr = opStr.replace(match.group(0), "("+ accStr+ ")")
                         try:
-                            operation["operation"] = str(round(eval(operation["operation"]), 10))
+                            opStr = str(round(eval(opStr), 10))
                         except:
                             pass
                 else:
                     raise Exception("A problem is in :", attr, match.group(0))    
 
-            if re.search(self.FCN_EXPR, operation["operation"]) is not None:
-                matches = re.finditer(self.FCN_EXPR, operation["operation"])
+            if re.search(self.FCN_EXPR, opStr) is not None:
+                matches = re.finditer(self.FCN_EXPR, opStr)
             else:
                 matches = None
         try:
-            operation["operation"] = str(round(eval(operation["operation"]), 10))
+            opStr = str(round(eval(opStr), 10))
         except:
             pass
-        return operation
+        return opStr
 
-    def mapOperationValues(self, list_operations, operation_category, dst):
+    def mapOperationValues(self, list_operations, category, scope):
+        try:
+            default_node = findNode(self.tree.root, category, scope, verbose=False)
 
-        nodes_according_to_operation_category = find(self.tree.root, lambda node: node.name.lower() == operation_category.lower() and hasattr(node, 'category') and node.category == dst)
-        if nodes_according_to_operation_category is None and dst == "root":
-            nodes_according_to_operation_category = find(self.tree.root, lambda node: node.name.lower() == operation_category.lower() and not hasattr(node, 'category'))
-            
-        if nodes_according_to_operation_category != () and nodes_according_to_operation_category is not None:
-            copy_operations = copy.deepcopy(list_operations)    
-            
-            for index, op in enumerate(copy_operations):                            
-                if op["operation"] is None:
-                    raise Exception("Operation can't be null :", op)
-        
-                op = self.replaceAllVarsByValue(op, nodes_according_to_operation_category, operation_category, dst)
-                op = self.replaceFcnByVar(op, operation_category, dst)
+            if default_node:                  
+                copy_operations = copy.deepcopy(list_operations)    
                 
-                op["node_category"] = nodes_according_to_operation_category
+                for index, op in enumerate(copy_operations):                            
+                    if op["operation"] is None:
+                        raise Exception("Operation can't be null :", op)
+            
+                    opStr = self.replaceAllVarsByValue(op["operation"], default_node, category, scope)
+                    op["operation"] = self.replaceFcnByVar(opStr, category, scope)
+                    
+                    op["node_category"] = default_node
 
-                copy_operations[index] = op
-                 
-            return copy_operations
+                    copy_operations[index] = op
+                    
+                return copy_operations
+        except Exception as e:
+            logger.error(e)
+            print(e)
+            raise e
+
         
         return None
         
     def operationParser(self):
         """
-        Replace all {} by [] while it's present in string of all operations 
+        Replace all Formula {} by Var [] while it's present in string of all operations 
         """
         for analyzer in self.tree.operation_sheets:
-            for operation_category, l_operations in analyzer.operations.items():
+            for category, l_operations in analyzer.operations.items():
 
-                if operation_category is None or l_operations is None or not isinstance(operation_category, str):
-                    raise Exception('ReplaceFcnByVar needs operation_category and operations')
+                if category is None or l_operations is None or not isinstance(category, str):
+                    raise Exception('ReplaceFcnByVar needs category and operations')
 
                 # Map values in self.operations
                 for dst, stored_operations in self.operations.items():
-                    values = self.mapOperationValues(l_operations, operation_category, dst)
+                    values = self.mapOperationValues(l_operations, category, dst)
 
                     if values:
                         stored_operations.append(values) 
@@ -695,8 +788,8 @@ class SheetInterpreter:
                             # logging.log(operation["operation"])
                             if operation["node_category"].analyzer.isSummarySheet():
                                 operation["node_category"].analyzer.addSummary(operation["operation_name"], operation["operation"], operation["unit"])
-                            elif operation["node_category"].analyzer.isSpecificationSheet():
-                                operation["node_category"].analyzer.addSpecification(operation["operation_name"], operation["operation"], operation["unit"], "CONST")
+                            elif operation["node_category"].analyzer.isCurvesSheet():
+                                operation["node_category"].analyzer.addCurve(operation["operation_name"], operation["operation"], operation["unit"], "CONST")
                         except Exception as e:
                             raise Exception("Error for evaluation of operations", operation, e)                        
 
@@ -826,7 +919,7 @@ class OutputAnalyzer:
 
     def findAndReplaceAnnotateValues(self):
         """
-        Find and replace all annotate's values by their specification's value
+        Find and replace all annotate's values by their curve's value
         """
         
         for row in self.ws:
@@ -852,23 +945,24 @@ class OutputAnalyzer:
                             filter = attr[1].split("|")
                             attr[1] = filter[0]
 
-                            if len(filter) > 1:
-                                node = find(self.tree.root, lambda node: node.name.lower() == attr[0].lower() and node.category.lower() == filter[1].lower())
+                            node = findNode(self.tree.root, attr[0], filter[1].lower() if len(filter) > 1 else None, verbose=False)
+                            # if len(filter) > 1:
+                            #     node = find(self.tree.root, lambda node: node.name.lower() == attr[0].lower() and node.category.lower() == filter[1].lower())
                                 
-                                if node is None:
-                                    raise Exception("Filter {} don't exist".format(filter))
-                            else:
-                                try:
-                                    node = find(self.tree.root, lambda node: node.name.lower() == attr[0].lower())
-                                except:
-                                    raise Exception("Try to add category to : {}".format(str(attr)))
+                            #     if node is None:
+                            #         raise Exception(f"Filter {filter} don't exist")
+                            # else:
+                            #     try:
+                            #         node = find(self.tree.root, lambda node: node.name.lower() == attr[0].lower())
+                            #     except:
+                            #         raise Exception(f"Try to add category to : {attr}")
 
                             if node is not None:
                                 data = None
                                 val = {}
 
-                                if node.analyzer.isSpecificationSheet():
-                                    data = node.analyzer.getSpecificationByName(attr[1])
+                                if node.analyzer.isCurvesSheet():
+                                    data = node.analyzer.getCurveByName(attr[1])
                                                         
                                     if data is not None:
                                         # Interprete FOR directive according to val
@@ -971,7 +1065,7 @@ class FileChecker:
         self.wb = None
 
     def checkForSpecFormat(self):
-        # Check if file contains only specifications and track summary data as well as non accepted files as Constants or Operations
+        # Check if file contains only curves and track summary data as well as non accepted files as Constants or Operations
         self.wb = load_workbook(self.path)
         for sheet_name in self.wb.sheetnames:
             analyzer = InputAnalyzer(self.wb[sheet_name], sheet_name, self.path)
