@@ -54,7 +54,10 @@ install: ## Init data's project
 	rm -rf web/simulator/migrations && mkdir web/simulator/migrations
 	rm -rf web/media
 	mkdir web/media/ && mkdir web/media/models && mkdir web/media/models/output && mkdir web/media/models/input
+	cp -r dataset/models/input web/media/models
+	cp -r dataset/models/output web/media/models
 	sudo chmod -R 777 web/media
+	sudo chown -R `whoami`:`whoami` web/media
 	touch web/simulator/migrations/__init__.py
 	make
 	sleep 5
@@ -62,8 +65,7 @@ install: ## Init data's project
 	make graph
 	$(SERVER) python3 manage.py loaddata simulator/fixtures/users.json
 	$(SERVER) python3 manage.py collectstatic --noinput
-	cp -r dataset/models/input web/media/models
-	cp -r dataset/models/output web/media/models
+
 	make restart
 
 django-shell: ## Open django shell
