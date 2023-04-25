@@ -49,11 +49,9 @@ install: ## Init data's project
 	rm -rf data && rm -rf web/media && rm -rf web/simulator/migrations
 	mkdir web/simulator/migrations
 	touch web/simulator/migrations/__init__.py
-	rm -rf data
-	mkdir data
-	chmod -R 777 data
-	rm -rf web/simulator/migrations
-	mkdir web/simulator/migrations
+	rm -rf data && mkdir data && chmod -R 777 data
+	rm -rf web/logs && mkdir web/logs
+	rm -rf web/simulator/migrations && mkdir web/simulator/migrations
 	rm -rf web/media
 	mkdir web/media/ && mkdir web/media/models && mkdir web/media/models/output && mkdir web/media/models/input
 	touch web/simulator/migrations/__init__.py
