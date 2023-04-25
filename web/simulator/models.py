@@ -25,8 +25,8 @@ class Simulation(models.Model):
     project_name = models.CharField(max_length=255, unique=True, blank=True)
     project_description = RichTextField(blank=True)
     project_type = models.CharField(max_length=100, blank=True, choices=Enums.SIMULATION_TYPES, default=Enums.SIMULATION_TYPES[0][0])
-    start = models.DateTimeField(blank=True)
-    end = models.DateTimeField(blank=True)
+    # start = models.DateTimeField(blank=True)
+    # end = models.DateTimeField(blank=True)
 
     def __str__(self) -> str:
         return self.title

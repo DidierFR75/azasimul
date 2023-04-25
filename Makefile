@@ -2,7 +2,7 @@
 
 # Environnement's variables
 APP_CODE=simaza
-SERVER=docker-compose run web
+SERVER=docker compose run web
 PRODUCTION_SERVER_ADDRESS=ubuntu@146.59.237.34
 
 # Display Colors
@@ -16,13 +16,16 @@ NO_COLOR    = \033[m
 # -------------------------------------------------------------------------
 
 run: ## Start server
-	docker-compose up --build -d
+	docker compose up --build -d
 
 run-db: ## Close server
-	docker-compose up -d db
+	docker compose up -d db
 
 down: ## Close server
-	docker-compose down
+	docker compose down
+
+web-down: ## Close server
+	docker stop web_simaza
 
 restart: ## Restart server
 	make down
@@ -42,6 +45,7 @@ graph: ## Generate model's diagram
 	$(SERVER) python3 manage.py graph_models -a -g -o aza_graph_project.png
 
 install: ## Init data's project
+	docker compose down
 	rm -rf data && rm -rf web/media && rm -rf web/simulator/migrations
 	mkdir web/simulator/migrations
 	touch web/simulator/migrations/__init__.py
@@ -50,15 +54,18 @@ install: ## Init data's project
 	chmod -R 777 data
 	rm -rf web/simulator/migrations
 	mkdir web/simulator/migrations
-	rm -rf wbe/media
+	rm -rf web/media
 	mkdir web/media/ && mkdir web/media/models && mkdir web/media/models/output && mkdir web/media/models/input
 	touch web/simulator/migrations/__init__.py
 	make
-	sleep 10
+	sleep 5
 	make migration
 	make graph
 	$(SERVER) python3 manage.py loaddata simulator/fixtures/users.json
 	$(SERVER) python3 manage.py collectstatic --noinput
+	sudo chown -R user:user web/media
+	cp -r dataset/models/input web/media/models
+	cp -r dataset/models/output web/media/models
 	make restart
 
 django-shell: ## Open django shell

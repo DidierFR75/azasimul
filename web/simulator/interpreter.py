@@ -21,7 +21,8 @@ import copy
 from dateutil.relativedelta import relativedelta
 
 import logging
-logging.config.dictConfig({
+try:
+    logging.config.dictConfig({
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
@@ -51,7 +52,10 @@ logging.config.dictConfig({
         }
     }
 })
-logger = logging.getLogger(__name__)
+    os.makedirs('./logs', exist_ok=True)
+    logger = logging.getLogger(__name__)
+except Exception as e:
+    print(e)
 
 def rejectXlsFile(fn):
     if fn.startswith(".") or fn.startswith(InputAnalyzer.DELIMITER_SHEET_UNFOLLOW) or not fn.endswith('.xlsx'):
@@ -1069,7 +1073,7 @@ class FileChecker:
         self.wb = load_workbook(self.path)
         for sheet_name in self.wb.sheetnames:
             analyzer = InputAnalyzer(self.wb[sheet_name], sheet_name, self.path)
-            if analyzer.create():
+            if analyzer.loadSheet():
                 if analyzer.isSummarySheet():
                     self.summary = analyzer.summary
                     self.wb.remove(self.wb[sheet_name])

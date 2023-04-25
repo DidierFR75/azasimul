@@ -38,8 +38,8 @@ $ make help # Display description of all commands
 
 | Username | Email                 | Password      | Role  |
 | -------- | --------------------- |:-------------:| ----- |
-| admin    | admin@azasimul.fr     |  AzaPass999   | Admin |
-| aza      | aza@azasimul.fr       |  AzaPass999   | User  |
+| SimADMIN | admin@azasimul.fr     |  AzaPass999   | Admin |
+| SimUSER  | aza@azasimul.fr       |  AzaPass999   | User  |
 
 
 ### Deployment

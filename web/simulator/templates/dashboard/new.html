@@ -7,15 +7,16 @@
   <h1 class="text-center">Dashboard</h1>
   <form method="POST" enctype="multipart/form-data" class="mt-5">
     {% csrf_token %}
-    <div class="mb-3">
+    <!-- <div class="mb-3">
       <label>Download the files containing the Curves</label>
       <input name="input_files" type="file" multiple class="form-control" />
-    </div>
+
     <div class="hr-theme-slash-2">
       <div class="hr-line"></div>
       <div class="hr-icon">And/Or</div>
       <div class="hr-line"></div>
     </div>
+    </div> -->
     {{ simulation_form|crispy }}
 
     <button class="btn btn-primary" type="submit">Make a simulation</button>

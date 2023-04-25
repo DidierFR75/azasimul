@@ -1,6 +1,8 @@
-FROM ubuntu:18.04
+#FROM ubuntu:18.04
+#FROM debian:10
+FROM python:3.9-slim
 
-RUN apt update -y && apt install python3 -y \
+RUN apt update -y && apt install python3.9 -y \
     && apt install python3-pip -y \
     && apt install libpq-dev -y \
     && apt install graphviz -y

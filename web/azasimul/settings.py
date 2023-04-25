@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'crispy_forms',
     "django_extensions",
     "ckeditor",
+    "crispy_bootstrap4",
     "django_cleanup.apps.CleanupConfig"
 ]
 
@@ -105,7 +106,7 @@ DATABASES = {
         'NAME': os.environ.get('POSTGRES_NAME'),
         'USER': os.environ.get('POSTGRES_USER'),
         'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
-        'HOST': 'db',
+        'HOST': 'db' if os.path.exists('/home/user/QQQ.txt') else 'db',
         'PORT': 5432,
     }
 }

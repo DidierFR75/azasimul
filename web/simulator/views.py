@@ -117,6 +117,8 @@ def new(request):
             # Create simulation object and inputs objects
             simulation.save()
             simulation.createPaths()
+            path = Simulation.getPath(simulation.id, 'inputs')+'/'
+            os.makedirs(path, exist_ok=True)
 
             for simul_input in simul_inputs:
                 simul_input.simulation = simulation
@@ -255,7 +257,8 @@ def downloadData(request, simul_id):
 def downloadOneData(request, id, namefile):
     simulation = get_object_or_404(Simulation, id=id) 
 
-    path = settings.MEDIA_ROOT+"/inputs/simulation_"+str(simulation.id)
+    # path = settings.MEDIA_ROOT+"/inputs/simulation_"+str(simulation.id)
+    path = Simulation.getPath(simulation.id, 'inputs')+'/'
 
     # Copy /operations in media/input/simulation_id to take into account default operations
     for model_file in os.listdir(path):
@@ -270,7 +273,12 @@ def downloadOneData(request, id, namefile):
 
 @login_required(login_url='simulation:login')
 def listDownloadData(request, id):
-    return render(request, 'dashboard/listdatas.html', {"input_files": os.listdir(settings.MEDIA_ROOT+"/inputs/simulation_"+str(id)), "simulation_id": id})
+    path = Simulation.getPath(id, 'inputs')+'/'
+    try: files = os.listdir(path)
+    except: files=[]
+    if not files:
+        return HttpResponse("No files")
+    return render(request, 'dashboard/listdatas.html', {"input_files": files, "simulation_id": id})
 
 # Add Questions/Constants page
 @login_required(login_url="simulator:login")
