@@ -122,7 +122,7 @@ There are also operators to display certain types of data or in a certain shape.
 
 | Keyword Operator | Keyword Operator Description                                                                                                   |
 | -----------------|:------------------------------------------------------------------------------------------------------------------------------:|
-| FOR:             | Insert all data matrix in each row below with FOR:[data], insert loop index with FOR:*INDEX*, insert each year with FOR:*YEAR* |
+| FOR:             | Insert all data matrix in each row below with FOR:[data], insert loop index with FOR:*INDEX*, insert each DATEPOINT with FOR:*DATEPOINT* |
 | CATEGORY:        | Show data which belong to CATEGORY, all category cell values becomes a keyword operator                                        |
 
 

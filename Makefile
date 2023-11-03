@@ -57,10 +57,10 @@ install: ## Init data's project
 	cp -r dataset/models/input web/media/models
 	cp -r dataset/models/output web/media/models
 	sudo chmod -R 777 web/media
-	sudo chown -R `whoami`:`whoami` web/media
+	#sudo chown -R `whoami`:`whoami` web/media
 	touch web/simulator/migrations/__init__.py
 	make
-	sleep 5
+	sleep 15
 	make migration
 	make graph
 	$(SERVER) python3 manage.py loaddata simulator/fixtures/users.json

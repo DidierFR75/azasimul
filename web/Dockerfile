@@ -2,7 +2,7 @@
 #FROM debian:10
 FROM python:3.9-slim
 
-RUN apt update -y && apt install python3.9 -y \
+RUN apt update -y && apt install python3 -y \
     && apt install python3-pip -y \
     && apt install libpq-dev -y \
     && apt install graphviz -y
