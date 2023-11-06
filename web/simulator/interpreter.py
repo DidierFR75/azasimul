@@ -1,5 +1,3 @@
-from unicodedata import category
-# from openpyxl.writer.excel import save_virtual_workbook
 import os
 import re
 import random
@@ -8,6 +6,7 @@ import zipfile
 import math
 import datetime
 import copy
+import logging
 import pandas as pd
 import numpy as np
 import scipy as sp
@@ -17,11 +16,11 @@ from dateutil.relativedelta import relativedelta
 from pycel import ExcelCompiler
 from openpyxl import Workbook, load_workbook
 from statistics import mean
-from anytree import Node, RenderTree, find, Resolver, PostOrderIter, findall
+from anytree import Node, find, findall
 from copy import copy, deepcopy
 from faker import Faker
 
-import logging
+# Manage logging system
 try:
     logging.config.dictConfig({
     'version': 1,
@@ -59,11 +58,40 @@ except Exception as e:
     print(e)
 
 def rejectXlsFile(fn):
+    """
+    Check if a given file name is valid for processing.
+
+    Args:
+        fn (str): The file name to be checked.
+
+    Returns:
+        bool: True if the file name is invalid, False if the file name is valid.
+
+    Example:
+        >>> file_name = "example.xlsx"
+        >>> result = rejectXlsFile(file_name)
+        >>> print(result)
+        False
+
+        >>> file_name = ".hidden.xlsx"
+        >>> result = rejectXlsFile(file_name)
+        >>> print(result)
+        True
+    """
     if fn.startswith(".") or fn.startswith(InputAnalyzer.DELIMITER_SHEET_UNFOLLOW) or not fn.endswith('.xlsx'):
         return True
     return False
 
 def reject_file(file_path):
+    """
+    Check if a given file path is valid for processing.
+
+    Args:
+        file_path (str): The path of the file to be checked.
+
+    Returns:
+        bool: True if the file path is invalid, False if the file path is valid.
+    """
     fn = os.path.basename(file_path)
     if rejectXlsFile(fn):
         return True
@@ -71,7 +99,14 @@ def reject_file(file_path):
 
 def folder_zip(folderPath, zip_fn):
     """
-    Create <zip_fn>.zip of a folder and return path
+    Create a zip file of a given folder.
+
+    Args:
+        folderPath (str): The path of the folder to be zipped.
+        zip_fn (str): The filename of the generated zip file.
+
+    Returns:
+        str: The path of the generated zip file.
     """
     directory = pathlib.Path(folderPath)
     destination = f"{directory.parent.absolute()}/{zip_fn}.zip"
@@ -165,6 +200,17 @@ class InputAnalyzer:
     def log_interp1d(self, xx, yy, kind='linear', small_value=1e-10):
         """
         Return the log interpolation on 1 dimension
+
+        Perform logarithmic interpolation on one-dimensional data.
+
+        Parameters:
+        xx (array): The x values of the data points.
+        yy (array): The y values of the data points.
+        kind (string, optional): The type of interpolation to perform. Defaults to 'linear'.
+        small_value (float, optional): A small value used to adjust the y values to avoid taking the logarithm of zero. Defaults to 1e-10.
+
+        Returns:
+        log_interp (lambda function): A lambda function that can be used to interpolate new y values based on the given x and y values.
         """
         yy_adjusted = np.maximum(yy, small_value)
         logx = np.log10(xx)
@@ -176,6 +222,12 @@ class InputAnalyzer:
     def evaluate(self, cell):
         """
         Return the evaluation's value of a given cell (rounded by 3)
+
+        Args:
+            cell (str): The cell reference in the Excel sheet (e.g., "A1").
+
+        Returns:
+            float: The evaluation value of the given cell, rounded to three decimal places.
         """
         eval = self.evaluator.evaluate(self.sheet_name+"!"+cell.coordinate)
         if isinstance(eval, float):
@@ -210,34 +262,42 @@ class InputAnalyzer:
     # Generator's functions
 
     def _generatePointsWithDates(self):
-        """
-            Return dict (row_number, point_no, date) of all points and associate's date
-        """
+            """
+            Return a dictionary of points with their associated dates.
+
+            This method collects the row number, point number, and date for each point in the worksheet.
+            It filters out any points that do not have a date.
+            If there are at least two points with dates, it performs linear interpolation to calculate the dates for the remaining points.
+            If there are fewer than two points with dates, it populates the missing dates based on a specified granularity.
+
+            Returns:
+            points_with_dates (dict): A dictionary containing the row number, point number, and date for each point in the worksheet.
+            """
+
+            points = [
+                {"row": point.row, "point_n": self.evaluate(point), "date": self.ws[self.DATE_COL+str(point.row)].value } 
+                for point in self.ws[self.POINT_N_COL] 
+                if point.value is not None and (isinstance(point.value, (int, float)) or (isinstance(point.value, str) and point.value.startswith("=")))
+            ]
         
-        points = [
-            {"row": point.row, "point_n": self.evaluate(point), "date": self.ws[self.DATE_COL+str(point.row)].value } 
-            for point in self.ws[self.POINT_N_COL] 
-            if point.value is not None and (isinstance(point.value, (int, float)) or (isinstance(point.value, str) and point.value.startswith("=")))
-        ]
-        
-        valid_points = [ pt for pt in points if pt["date"] is not None ]
-        # Check if exist at least 2 dates in points
-        if len(valid_points) >= 2:
-            x = list(range(len(valid_points)))
-            try:
-                y = list(map(datetime.datetime.timestamp, [pt["date"] for pt in valid_points]))
-            except Exception as e:
-                raise e
-            interp1d = interpolate.interp1d(x, y, fill_value="extrapolate") 
-            interpolated_timestamps = interp1d(x)
-            for pt, interpolated_timestamp in zip(valid_points, interpolated_timestamps):
-                pt["date"] = datetime.datetime.fromtimestamp(interpolated_timestamp)
-            for pt, interpolated_timestamp in zip(points, interpolated_timestamps):
-                if pt["date"] is None:
+            valid_points = [ pt for pt in points if pt["date"] is not None ]
+            # Check if exist at least 2 dates in points
+            if len(valid_points) >= 2:
+                x = list(range(len(valid_points)))
+                try:
+                    y = list(map(datetime.datetime.timestamp, [pt["date"] for pt in valid_points]))
+                except Exception as e:
+                    raise e
+                interp1d = interpolate.interp1d(x, y, fill_value="extrapolate") 
+                interpolated_timestamps = interp1d(x)
+                for pt, interpolated_timestamp in zip(valid_points, interpolated_timestamps):
                     pt["date"] = datetime.datetime.fromtimestamp(interpolated_timestamp)
-            return points
-        else:
-            return self._populateByFrequency(points)
+                for pt, interpolated_timestamp in zip(points, interpolated_timestamps):
+                    if pt["date"] is None:
+                        pt["date"] = datetime.datetime.fromtimestamp(interpolated_timestamp)
+                return points
+            else:
+                return self._populateByFrequency(points)
 
     def _generateCurves(self):
         """
@@ -612,6 +672,21 @@ class SheetTree:
                     element[2].parent = nodes[i[0]][2]
 
 def findNode(treeRoot, category, scope, verbose=False):
+    """
+    Find the first node in a tree structure based on its category and scope.
+
+    Args:
+        treeRoot (Node): The root node of the tree structure.
+        category (str): The category of the node to find.
+        scope (str): The scope of the node to find.
+        verbose (bool, optional): Whether to log errors if multiple nodes are found. Defaults to False.
+
+    Returns:
+        Node: The first matching node found in the tree based on the given category and scope.
+
+    Raises:
+        Exception: If the node with the given category and scope is not found in the tree.
+    """
     catCode = category.lower()
     nodes = None
     if scope:
@@ -1252,6 +1327,8 @@ class FileChecker:
     def checkForSpecFormat(self):
         """
         Checks the format of the file. Loads the file using `load_workbook` function, iterates over each sheet, analyzes each sheet using `InputAnalyzer` class, stores the summary data if the sheet is a summary sheet, adds the sheet name to the list of non-accepted files if the sheet is a constant or operation sheet, and saves the modified workbook.
+
+        :return: None
         """
         self.wb = load_workbook(self.path)
         for sheet_name in self.wb.sheetnames:
@@ -1260,7 +1337,7 @@ class FileChecker:
                 if analyzer.isSummarySheet():
                     self.summary = analyzer.summary
                     self.wb.remove(self.wb[sheet_name])
-                
+            
                 if analyzer.isConstantSheet() or analyzer.isOperationSheet():
                     self.non_accepted.append(sheet_name)
                     self.wb.remove(self.wb[sheet_name])         
