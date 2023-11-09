@@ -285,16 +285,16 @@ class InputAnalyzer:
             if len(valid_points) >= 2:
                 x = list(range(len(valid_points)))
                 try:
-                    y = list(map(datetime.datetime.timestamp, [pt["date"] for pt in valid_points]))
+                    y = list(map(datetime.timestamp, [pt["date"] for pt in valid_points]))
                 except Exception as e:
                     raise e
                 interp1d = interpolate.interp1d(x, y, fill_value="extrapolate") 
                 interpolated_timestamps = interp1d(x)
                 for pt, interpolated_timestamp in zip(valid_points, interpolated_timestamps):
-                    pt["date"] = datetime.datetime.fromtimestamp(interpolated_timestamp)
+                    pt["date"] = datetime.fromtimestamp(interpolated_timestamp)
                 for pt, interpolated_timestamp in zip(points, interpolated_timestamps):
                     if pt["date"] is None:
-                        pt["date"] = datetime.datetime.fromtimestamp(interpolated_timestamp)
+                        pt["date"] = datetime.fromtimestamp(interpolated_timestamp)
                 return points
             else:
                 return self._populateByFrequency(points)
@@ -789,17 +789,6 @@ class SheetInterpreter:
 
         if len(attr) > 1:
             node = findNode(self.tree.root, attr[0], scope)
-            # nodes = findall(self.tree.root, lambda node: node.name.lower() == attr[0].lower()) 
-
-            # if not nodes:
-            #     raise Exception(f"Cannot find sheet '{attr[0]}' in the tree... with category '{category}'")
-
-            # if len(nodes) > 1:
-            #     node = find(self.tree.root, lambda n: hasattr(n, "category") and n.category == dst and n.name.lower() == attr[0].lower())
-            #     if not node:
-            #         node = nodes[0]
-            # else:
-            #     node = nodes[0]
         else:
             node = default_node
 
@@ -830,6 +819,8 @@ class SheetInterpreter:
                 if spec["interpolation"] == "CONST":
                     return spec["values"][0]
                 else:
+                    
+                    #raise Exception(spec)
                     # make an average of each interpolate's values 
                     return mean(spec["values"])
             else:
@@ -905,7 +896,7 @@ class SheetInterpreter:
             default_node = findNode(self.tree.root, category, scope, verbose=False)
 
             if default_node:                  
-                copy_operations = copy.deepcopy(list_operations)    
+                copy_operations = deepcopy(list_operations)    
                 
                 for index, op in enumerate(copy_operations):                            
                     if op["operation"] is None:
@@ -999,7 +990,7 @@ Fields:
 """
 class OutputAnalyzer:
 
-    EXPRESSION = '\[[ \_\(\)\|\-\+a-zA-Z0-9\.]+\]' # expression of a var in output's cell
+    EXPRESSION = r'\[[ \w().|+\-{}]+\]' # expression of a var in output's cell
     
     FUNCTION = {
         "for": "FOR:",
@@ -1045,7 +1036,7 @@ class OutputAnalyzer:
         """
         if unit is not None and val != "" and unit != "" and unit in list(self.UNIT_FORMATS.keys()):
             try:
-                return copy.deepcopy(self.UNIT_FORMATS[unit](val))
+                return deepcopy(self.UNIT_FORMATS[unit](val))
             except Exception as e:
                 raise Exception("Unit problem : ", e, unit, val)
         return val
@@ -1056,12 +1047,12 @@ class OutputAnalyzer:
         """
         if cell is not None and cell.has_style and new_cell is not None:
             try:
-                new_cell.font = copy.copy(cell.font)
-                new_cell.border = copy.copy(cell.border)
-                new_cell.fill = copy.copy(cell.fill)
-                new_cell.number_format = copy.copy(cell.number_format)
-                new_cell.protection = copy.copy(cell.protection)
-                new_cell.alignment = copy.copy(cell.alignment)
+                new_cell.font = copy(cell.font)
+                new_cell.border = copy(cell.border)
+                new_cell.fill = copy(cell.fill)
+                new_cell.number_format = copy(cell.number_format)
+                new_cell.protection = copy(cell.protection)
+                new_cell.alignment = copy(cell.alignment)
             except Exception as e:
                 raise Exception(e)
 
@@ -1158,23 +1149,35 @@ class OutputAnalyzer:
                     matches = re.finditer(self.EXPRESSION, cell.value)
                     for match in matches:
                         node = None
-                        m = match.group(0).replace("[", "").replace("]", "").strip()
-                        attr = m.split(".")
+                        full_match = match.group(0)
+                        inner_content = full_match.strip('[]')  # Remove the brackets
+                        parts = inner_content.split('|')
 
-                        if len(attr) > 1:
-                            # Check if filter exist
-                            filter = attr[1].split("|")
-                            attr[1] = filter[0]
+                        variable_part = parts[0]
 
-                            node = findNode(self.tree.root, attr[0], filter[1].lower() if len(filter) > 1 else None, verbose=False)
-                         
+                        if len(parts) > 1:
+                            filter = parts[1].lower()
+                        else:
+                            filter = None
+
+                        line_number = None
+                        if '{' in variable_part:
+                            # Extract the variable name and line number if present
+                            variable_part, line_info = re.match(r'(.*?){(\d+)}', variable_part).groups()
+                            line_number = int(line_info)
+
+                        attr = variable_part.split(".")
+
+                        if len(attr) > 1:                            
+                            node = findNode(self.tree.root, attr[0], filter, verbose=False)
+
                             if node is not None:
                                 data = None
                                 val = {}
 
                                 if node.analyzer.isCurvesSheet():
                                     data = node.analyzer.getCurveByName(attr[1])
-                                                        
+                                                    
                                     if data is not None:
                                         # Interprete FOR directive according to val
                                         if cell.value.startswith(self.FUNCTION["for"]) and [item for item in self.FUNCTION_TRANSFORMER["for"] if cell.value.endswith(item)] == []:
@@ -1203,10 +1206,13 @@ class OutputAnalyzer:
                                                 raise Exception("No value found for : ", data)
                                         else:
                                             try:
-                                                val = mean(data["values"])
+                                                if line_number is not None and line_number <= len(data["values"]):
+                                                    val = data["values"][line_number]
+                                                else:
+                                                    val = mean(data["values"])
                                             except:
                                                 raise Exception("Can't do a mean of value for ", data)
-
+                                            
                                 if node.analyzer.isConstantSheet() and len(attr) > 2:
                                     data = node.analyzer.getConstantByCategoryAndName(attr[1], attr[2])
                                     val = data["value"] if data is not None else None                    
@@ -1221,14 +1227,6 @@ class OutputAnalyzer:
 
     def save(self, path):
         self.wb.save(path)
-
-    """
-    The `SheetOutputGenerator` class is responsible for generating the final output Excel file by analyzing and replacing variables in the output sheets based on the values obtained from the interpreter.
-
-    Args:
-        interpreter (SheetInterpreter): The interpreter object used to evaluate the input file.
-        output_path (str): The path to the output files.
-    """
 
 """
 The SheetOutputGenerator class is responsible for generating the final output Excel file by replacing variables in the output sheets with their corresponding values obtained from the interpreter.

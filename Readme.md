@@ -125,6 +125,16 @@ There are also operators to display certain types of data or in a certain shape.
 | FOR:             | Insert all data matrix in each row below with FOR:[data], insert loop index with FOR:*INDEX*, insert each DATEPOINT with FOR:*DATEPOINT* |
 | CATEGORY:        | Show data which belong to CATEGORY, all category cell values becomes a keyword operator                                        |
 
+#### Accessing Specific Data Rows
+
+To utilize the `{}` syntax for accessing specific rows, include the row number within the curly braces immediately after the variable name without any spaces. For example:
+
+- `[Cell.Internal Resistance{0}|AZA]` will access the first row of "Internal Resistance" in Cell Sheet from AZA file.
+- `[Cell.Internal Resistance{1}|AZA]` will access the second row, and so on.
+
+This feature enables precise data extraction and manipulation within your output models, allowing for enhanced flexibility and specificity in data representation.
+
+If nothing is specified, all cells in the column will be averaged by default.
 
 #### Unit Formatting System
 
