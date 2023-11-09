@@ -134,7 +134,7 @@ To utilize the `{}` syntax for accessing specific rows, include the row number w
 
 This feature enables precise data extraction and manipulation within your output models, allowing for enhanced flexibility and specificity in data representation.
 
-If nothing is specified, all cells in the column will be averaged by default.
+If nothing is specified, the first row of the default column is used.
 
 #### Unit Formatting System
 

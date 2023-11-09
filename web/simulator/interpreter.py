@@ -1209,9 +1209,9 @@ class OutputAnalyzer:
                                                 if line_number is not None and line_number <= len(data["values"]):
                                                     val = data["values"][line_number]
                                                 else:
-                                                    val = mean(data["values"])
+                                                    val = data["values"][0]
                                             except:
-                                                raise Exception("Can't do a mean of value for ", data)
+                                                raise Exception("Can't access data values ", data)
                                             
                                 if node.analyzer.isConstantSheet() and len(attr) > 2:
                                     data = node.analyzer.getConstantByCategoryAndName(attr[1], attr[2])
