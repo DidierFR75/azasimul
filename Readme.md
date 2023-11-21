@@ -114,6 +114,16 @@ We can also add filters to function parameters that require a transformation:
 | date        | Month        | Show the month of date        |
 | date        | Day          | Show the day of date          |
 
+**Accessing Specific Data Rows**
+
+To utilize the `!` syntax for accessing specific rows, include the row number within the curly braces immediately after the variable name without any spaces. For example:
+- `[Volumetric Density!1]` will access the second row of "Volumetric Density".
+- `{Volume!2}` will access the second row of all vars from "Volume".
+
+This feature enables precise data extraction and manipulation within your operation's models, allowing for enhanced flexibility and specificity in data representation.
+
+If nothing is specified, the first row of the default column is used.
+
 ### Output Model
 
 To define a value to display in the model, you just have to add a value such as [Composition_name/Function_name.name] in a cell and it will be automatically replaced by the system if it exists.

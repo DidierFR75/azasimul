@@ -118,55 +118,53 @@ def folder_zip(folderPath, zip_fn):
             archive.write(file_path, arcname=file_path.name)
     return destination
 
-"""
-The `InputAnalyzer` class is responsible for analyzing and processing data from an Excel worksheet. 
-It can identify different types of sheets (operation, constant, summary, and curves) and extract relevant information from each type. 
-It can also perform interpolation on curves and store the results.
-
-Main functionalities:
-- Identify and load different types of sheets (operation, constant, summary, and curves)
-- Extract metadata, points, curves, constants, summary, and operations from the sheet
-- Perform interpolation on curves
-- Add new curves, constants, summary, and operations to the analyzer
-
-Methods:
-- loadSheet(): Loads and analyzes the sheet, extracting relevant information based on the sheet type
-- addCurve(specification_name, value, unit, interpolation): Adds a new curve to the analyzer
-- addConstant(name, value, unit): Adds a new constant to the analyzer
-- addSummary(name, value, unit): Adds a new summary to the analyzer
-- addOperation(name, operation, unit): Adds a new operation to the analyzer
-- getCurveByName(name): Retrieves a curve by its name
-- getConstantByName(name): Retrieves a constant by its name
-- getSummaryByName(name): Retrieves a summary by its name
-- getOperationByName(name): Retrieves an operation by its name
-- getCategory(): Retrieves the category metadata of the sheet
-
-Fields:
-- BASE_ELEMENTS_ROW: The row number where the base elements are located
-- UNIT_ROW: The row number where the units are located
-- CURVE: The row number where the curve interpolations are located
-- METADATA_COL: The column letter where the metadata is located
-- POINT_N_COL: The column letter where the point numbers are located
-- DATE_COL: The column letter where the dates are located
-- PRODUCT_NAME: The metadata name for the product type
-- PRODUCT_PARENT: The metadata name for the product subtype
-- CATEGORY: The metadata name for the category
-- DELIMITER_SHEET_UNFOLLOW: The delimiter used to skip sheets
-- CONSTANT_SHEETNAME: The name of the constant sheet
-- SUMMARY_SHEETNAME: The name of the summary sheet
-- OPERATION_SHEETNAME: The name of the operation sheet
-- evaluator: An instance of the ExcelCompiler class for evaluating Excel formulas
-- sheet_name: The name of the sheet being analyzed
-- ws: The worksheet object being analyzed
-- curves: A list of dictionaries representing the curves in the sheet
-- points: A list of dictionaries representing the points in the sheet
-- metadatas: A dictionary representing the metadata in the sheet
-- operations: A dictionary representing the operations in the sheet
-- constants: A dictionary representing the constants in the sheet
-- summary: A list of dictionaries representing the summary in the sheet
-- fake: An instance of the Faker class for generating fake data
-"""
 class InputAnalyzer:
+    """
+    The `InputAnalyzer` class is responsible for analyzing and processing data from an Excel worksheet. 
+    It can identify different types of sheets (operation, constant, summary, and curves) and extract relevant information from each type. 
+    It can also perform interpolation on curves and store the results.
+
+    Main functionalities:
+    - Identify and load different types of sheets (operation, constant, summary, and curves)
+    - Extract metadata, points, curves, constants, summary, and operations from the sheet
+    - Perform interpolation on curves
+    - Add new curves, constants, summary, and operations to the analyzer
+
+    Methods:
+    - loadSheet(): Loads and analyzes the sheet, extracting relevant information based on the sheet type
+    - addCurve(specification_name, value, unit, interpolation): Adds a new curve to the analyzer
+    - addSummary(name, value, unit): Adds a new summary to the analyzer
+    - getCurveByName(name): Retrieves a curve by its name
+    - getConstantByName(name): Retrieves a constant by its name
+    - getSummaryByName(name): Retrieves a summary by its name
+    - getOperationByName(name): Retrieves an operation by its name
+    - getCategory(): Retrieves the category metadata of the sheet
+
+    Fields:
+    - BASE_ELEMENTS_ROW: The row number where the base elements are located
+    - UNIT_ROW: The row number where the units are located
+    - CURVE: The row number where the curve interpolations are located
+    - METADATA_COL: The column letter where the metadata is located
+    - POINT_N_COL: The column letter where the point numbers are located
+    - DATE_COL: The column letter where the dates are located
+    - PRODUCT_NAME: The metadata name for the product type
+    - PRODUCT_PARENT: The metadata name for the product subtype
+    - CATEGORY: The metadata name for the category
+    - DELIMITER_SHEET_UNFOLLOW: The delimiter used to skip sheets
+    - CONSTANT_SHEETNAME: The name of the constant sheet
+    - SUMMARY_SHEETNAME: The name of the summary sheet
+    - OPERATION_SHEETNAME: The name of the operation sheet
+    - evaluator: An instance of the ExcelCompiler class for evaluating Excel formulas
+    - sheet_name: The name of the sheet being analyzed
+    - ws: The worksheet object being analyzed
+    - curves: A list of dictionaries representing the curves in the sheet
+    - points: A list of dictionaries representing the points in the sheet
+    - metadatas: A dictionary representing the metadata in the sheet
+    - operations: A dictionary representing the operations in the sheet
+    - constants: A dictionary representing the constants in the sheet
+    - summary: A list of dictionaries representing the summary in the sheet
+    - fake: An instance of the Faker class for generating fake data
+    """
     BASE_ELEMENTS_ROW = 17 # Location of base's elements
     UNIT_ROW = 18 # Location of units
     CURVE = 19 # Location of Curve's interpolations
@@ -261,6 +259,43 @@ class InputAnalyzer:
 
     # Generator's functions
 
+    def _populateByFrequency(self, points, granularity="year", X=1):
+        """
+        Populates the given list of points with interpolated dates based on a reference date.
+
+        Parameters:
+        - points (list): A list of dictionaries where each dictionary has a "date" key.
+                        The list should have at least one point with a non-null date.
+        - granularity (str): The unit for interpolation. Supported values are "year", "month", 
+                        "day", "hour", and "minute".
+        - X (int): The multiplier for the granularity.
+
+        The function will find the first non-null date in the points list and use it as a reference.
+        It will then populate missing dates in the list based on the given granularity and multiplier.
+
+        Returns:
+        - None: The function modifies the input list in-place.
+        """
+
+        # Mapping granularities to their respective relativedelta functions and random generators using faker
+        granularity_map = {
+            "year": lambda base_date, diff: base_date + relativedelta(years=random.randint(1, diff)),
+            "month": lambda base_date, diff: base_date + relativedelta(months=random.randint(1, diff)),
+            "day": lambda base_date, diff: base_date + timedelta(days=random.randint(1, diff)),
+            "hour": lambda base_date, diff: base_date + timedelta(hours=random.randint(1, diff)),
+            "minute": lambda base_date, diff: base_date + timedelta(minutes=random.randint(1, diff))
+        }
+
+        # Create the reference date as the first one found
+        ref_date = next(({"index": index, "date": point["date"]} for index, point in enumerate(points) if point["date"]), None)
+
+        if ref_date:
+            for index, point in enumerate(points):
+                if point["date"] is None:
+                    point["date"] = granularity_map[granularity](ref_date, X)
+        
+        return points
+
     def _generatePointsWithDates(self):
             """
             Return a dictionary of points with their associated dates.
@@ -353,7 +388,10 @@ class InputAnalyzer:
 
     def _generateOperations(self):
         """
-        Return operations
+        Extracts and generates a dictionary of operations from the Excel worksheet.
+
+        Returns:
+            dict: A dictionary where the keys are the operation names and the values are lists of dictionaries containing the operation details.
         """
         items = [(it.row, it.value) for it in self.ws["A"] if it.value is not None]
 
@@ -372,47 +410,10 @@ class InputAnalyzer:
                         "operation": self.evaluate(self.ws["C"+str(x)]),
                         "unit": self.clean_string(self.ws["D"+str(x)].value) 
                     })
-            
+        
             result[fcn[1]] = tmp
 
         return result
-
-    def _populateByFrequency(self, points, granularity="year", X=1):
-        """
-        Populates the given list of points with interpolated dates based on a reference date.
-
-        Parameters:
-        - points (list): A list of dictionaries where each dictionary has a "date" key.
-                        The list should have at least one point with a non-null date.
-        - granularity (str): The unit for interpolation. Supported values are "year", "month", 
-                        "day", "hour", and "minute".
-        - X (int): The multiplier for the granularity.
-
-        The function will find the first non-null date in the points list and use it as a reference.
-        It will then populate missing dates in the list based on the given granularity and multiplier.
-
-        Returns:
-        - None: The function modifies the input list in-place.
-        """
-
-        # Mapping granularities to their respective relativedelta functions and random generators using faker
-        granularity_map = {
-            "year": lambda base_date, diff: base_date + relativedelta(years=random.randint(1, diff)),
-            "month": lambda base_date, diff: base_date + relativedelta(months=random.randint(1, diff)),
-            "day": lambda base_date, diff: base_date + timedelta(days=random.randint(1, diff)),
-            "hour": lambda base_date, diff: base_date + timedelta(hours=random.randint(1, diff)),
-            "minute": lambda base_date, diff: base_date + timedelta(minutes=random.randint(1, diff))
-        }
-
-        # Create the reference date as the first one found
-        ref_date = next(({"index": index, "date": point["date"]} for index, point in enumerate(points) if point["date"]), None)
-
-        if ref_date:
-            for index, point in enumerate(points):
-                if point["date"] is None:
-                    point["date"] = granularity_map[granularity](ref_date, X)
-        
-        return points
 
     def _getValuesByCurve(self, curve):
         result = []
@@ -551,16 +552,16 @@ class InputAnalyzer:
             return str(self.metadatas[self.CATEGORY])
         return None
 
-"""
-The `SheetTree` class is responsible for creating a tree structure to organize and analyze sheets in Excel workbooks.
-
-Attributes:
-    path (str): The path to the folder containing the Excel workbooks.
-    root (Node): The root node of the formula tree.
-    all_sheet (dict): A dictionary with the file names as keys and a list of sheet analyzers as values.
-    operation_sheets (list): A list of sheet analyzers for the operation sheets.
-"""
 class SheetTree:
+    """
+    The `SheetTree` class is responsible for creating a tree structure to organize and analyze sheets in Excel workbooks.
+
+    Attributes:
+        path (str): The path to the folder containing the Excel workbooks.
+        root (Node): The root node of the formula tree.
+        all_sheet (dict): A dictionary with the file names as keys and a list of sheet analyzers as values.
+        operation_sheets (list): A list of sheet analyzers for the operation sheets.
+    """
     def __init__(self, path) -> None:
         """
         Initializes a new instance of the SheetTree class.
@@ -703,33 +704,32 @@ def findNode(treeRoot, category, scope, verbose=False):
     node = nodes[0] if nodes else nodes
     return node
 
-"""
-The `SheetInterpreter` class is responsible for interpreting and evaluating formulas in Excel workbooks. 
-It replaces variables and functions in the formulas with their corresponding values and then evaluates the formulas to obtain the final results.
-
-Main functionalities:
-- Replaces variables and functions in formulas with their corresponding values
-- Evaluates the formulas to obtain the final results
-- Updates the summary and curves sheets in the Excel workbooks with the evaluated results
-
-Methods:
-- __init__(self, folder): Initializes a new instance of the SheetInterpreter class with the specified folder path.
-- findOperation(self, category, operation_name): Finds an operation by its category and operation name.
-- convertFilter(self, value, unit, filter): Converts a value based on a filter.
-- replaceOneVarByValue(self, word, default_node, category, scope): Replaces a variable in a formula with its corresponding value.
-- replaceAllVarsByValue(self, opStr, default_node, category, scope): Replaces all variables in a formula with their corresponding values.
-- replaceFcnByVar(self, opStr, category, scope): Replaces functions in a formula with their corresponding values.
-- mapOperationValues(self, list_operations, category, scope): Maps the values in a list of operations by replacing variables and functions with their corresponding values.
-- operationParser(self): Parses the operations by replacing functions with variables and mapping the values.
-- evaluate(self): Evaluates the formulas by replacing variables and functions with their values and updating the summary and curves sheets.
-
-Fields:
-- tree: The SheetTree object that represents the tree structure of the Excel workbooks.
-- node_categories: A list of the categories of the nodes in the tree.
-- operations: A dictionary that stores the evaluated operations categorized by node category.
-"""
 class SheetInterpreter:
+    """
+    The `SheetInterpreter` class is responsible for interpreting and evaluating formulas in Excel workbooks. 
+    It replaces variables and functions in the formulas with their corresponding values and then evaluates the formulas to obtain the final results.
 
+    Main functionalities:
+    - Replaces variables and functions in formulas with their corresponding values
+    - Evaluates the formulas to obtain the final results
+    - Updates the summary and curves sheets in the Excel workbooks with the evaluated results
+
+    Methods:
+    - __init__(self, folder): Initializes a new instance of the SheetInterpreter class with the specified folder path.
+    - findOperation(self, category, operation_name): Finds an operation by its category and operation name.
+    - convertFilter(self, value, unit, filter): Converts a value based on a filter.
+    - replaceOneVarByValue(self, word, default_node, category, scope): Replaces a variable in a formula with its corresponding value.
+    - replaceAllVarsByValue(self, opStr, default_node, category, scope): Replaces all variables in a formula with their corresponding values.
+    - replaceFcnByVar(self, opStr, category, scope): Replaces functions in a formula with their corresponding values.
+    - mapOperationValues(self, list_operations, category, scope): Maps the values in a list of operations by replacing variables and functions with their corresponding values.
+    - operationParser(self): Parses the operations by replacing functions with variables and mapping the values.
+    - evaluate(self): Evaluates the formulas by replacing variables and functions with their values and updating the summary and curves sheets.
+
+    Fields:
+    - tree: The SheetTree object that represents the tree structure of the Excel workbooks.
+    - node_categories: A list of the categories of the nodes in the tree.
+    - operations: A dictionary that stores the evaluated operations categorized by node category.
+    """
     FILTERS_DISPATCH = {
         "date" : {
             "year" : lambda x: x.year,
@@ -738,8 +738,8 @@ class SheetInterpreter:
         }
     }
 
-    FCN_EXPR = '\{[ \_\(\)\-\|\.a-zA-Z0-9]+\}'
-    VAR_EXPR = '\[[ \_\(\)\|\-\+a-zA-Z0-9\.]+\]'
+    FCN_EXPR = '\{[ \_\(\)\-\|\.a-zA-Z0-9!]+\}'
+    VAR_EXPR = '\[[ \_\(\)\|\-\+a-zA-Z0-9\.!]+\]'
 
     def __init__(self, folder) -> None:
         self.tree = SheetTree(folder)
@@ -782,6 +782,14 @@ class SheetInterpreter:
             raise Exception("replaceOneVarByValue need all paramaters fill...")
         
         correct_word = word.replace("[", "").replace("]", "")
+
+        line_number = None
+        # Check for "!" and extract line number
+        if '!' in correct_word:
+            # Extract variable name and line number (if present)
+            correct_word, line_info = re.match(r'(.*?)!(\d+)', correct_word).groups()
+            line_number = int(line_info)
+        
         attr = correct_word.split('.')
 
         if len(attr) == 1:
@@ -819,16 +827,32 @@ class SheetInterpreter:
                 if spec["interpolation"] == "CONST":
                     return spec["values"][0]
                 else:
-                    
-                    #raise Exception(spec)
-                    # make an average of each interpolate's values 
-                    return mean(spec["values"])
+                    try:
+                        if line_number is not None and line_number <= len(spec["values"]):
+                            val = spec["values"][line_number]
+                        else:
+                            val = spec["values"][0]
+                    except:
+                        raise Exception("Can't access data values ", spec)
+                    return val
             else:
                 raise Exception('Error: replaceOneVarByValue()', word, node, category, scope, attr, node.analyzer.curves)
         
         return None
     
     def replaceAllVarsByValue(self, opStr, default_node, category, scope):
+        """
+        Replaces all variables in a formula string with their corresponding values.
+
+        Args:
+            opStr (str): The formula string to be modified.
+            default_node (Node): The default node to be used for replacing variables.
+            category (str): The category of the operation.
+            scope (str): The scope of the operation.
+
+        Returns:
+            str: The modified formula string with all variables replaced by their corresponding values.
+        """
         # Replace first all vars [] by value in result
         for m in re.finditer(self.VAR_EXPR, opStr):
             opStr = opStr.replace(m.group(0), str(self.replaceOneVarByValue(m.group(0), default_node, category, scope)))
@@ -836,7 +860,15 @@ class SheetInterpreter:
 
     def replaceFcnByVar(self, opStr, category, scope):
         """
-            Replace all fcn {} by value
+        Replace all function placeholders ({}) in the formula with their corresponding values ([]).
+
+        Args:
+            opStr (str): The formula string to be evaluated.
+            category (str): The category of the operation.
+            scope (str): The scope of the operation.
+
+        Returns:
+            str: The modified formula string with all function placeholders replaced by their evaluated values.
         """
         matches = re.finditer(self.FCN_EXPR, opStr)
         while matches is not None:
@@ -845,34 +877,44 @@ class SheetInterpreter:
                 wks = None
 
                 fcn_name = match.group(0).replace("{", "").replace("}", "").strip()
+        
+                line_number = None
+                # Check for "!" and extract line number
+                if '!' in fcn_name:
+                    # Extract variable name and line number (if present)
+                    fcn_name, line_info = re.match(r'(.*?)!(\d+)', fcn_name).groups()
+                    line_number = int(line_info)
+                
                 attr = fcn_name.split('.')
 
                 # if operation exist in list operation, add the value of it in it
                 if len(attr) > 2:
                     raise Exception("unknown function syntax for:", attr)
-                
+            
                 if len(attr) == 1:
                     attr.insert(0, category)
-                
+            
                 according_op = self.findOperation(attr[0], attr[1])
 
                 if according_op is not None:
                     related_nodes = findall(self.tree.root, lambda n: n.name.lower() == attr[0].lower())
                 else:
                     raise Exception("prb :", attr, match.group(0), fcn_name)
-                
+            
                 if according_op is not None and related_nodes != ():
                     for wks in related_nodes:                            
                         # Transform all {} in children by interpretable {}
                         accStr = according_op["operation"]
                         for m in re.finditer(self.FCN_EXPR, accStr):
                             rpl = m.group(0).replace("{", "").replace("}", "").strip()
+                            if line_number is not None:
+                                rpl = rpl+"!"+str(line_number)
 
                             if len(rpl.split(".")) == 1:
                                 accStr = accStr.replace(m.group(0), "{"+attr[0]+"."+rpl+"}")
 
                         accStr = self.replaceAllVarsByValue(accStr, wks, attr[0], scope)
-                        
+                    
                         opStr = opStr.replace(match.group(0), "("+ accStr+ ")")
                         try:
                             opStr = str(round(eval(opStr), 10))
@@ -912,10 +954,8 @@ class SheetInterpreter:
                 return copy_operations
         except Exception as e:
             logger.error(e)
-            print(e)
             raise e
 
-        
         return None
         
     def operationParser(self):
@@ -960,36 +1000,35 @@ class SheetInterpreter:
                         except Exception as e:
                             raise Exception("Error for evaluation of operations", operation, e)
 
-"""
-The `OutputAnalyzer` class is responsible for analyzing and manipulating data in an Excel sheet. 
-It provides methods for converting values based on filters, formatting values based on units, copying cell styles, inserting data according to transformer functions, unmerging cells, and finding and replacing annotated values with curve values.
-
-Methods:
-    - `__init__(self, wb, sheet_name, path, interpreter)`: Initializes an instance of `OutputAnalyzer` with the given workbook, sheet name, file path, and interpreter.
-    - `convertFilter(self, value, unit, filter)`: Converts a value based on a filter and unit.
-    - `formatByUnit(self, val, unit)`: Formats a value based on its unit.
-    - `copyCellStyle(self, cell, new_cell)`: Copies the style of a cell to a new cell.
-    - `isInterpretable(self, value)`: Checks if a value is interpretable.
-    - `insertTransformer(self, cell, for_already_insert)`: Inserts data according to a transformer function.
-    - `unmergeCell(self, cell)`: Unmerges a cell.
-    - `findAndReplaceAnnotateValues(self)`: Finds and replaces annotated values with curve values.
-    - `save(self, path)`: Saves the modified workbook to the specified path.
-
-Fields:
-    - `EXPRESSION`: Regular expression pattern for matching variable expressions in output cells.
-    - `FUNCTION`: Dictionary mapping function names to their corresponding keywords.
-    - `FUNCTION_TRANSFORMER`: Dictionary mapping function names to their corresponding transformer functions.
-    - `FILTERS_DISPATCH`: Dictionary mapping filter categories to their corresponding dispatch functions.
-    - `UNIT_FORMATS`: Dictionary mapping unit names to their corresponding formatting functions.
-    - `evaluator`: Instance of `ExcelCompiler` for evaluating Excel formulas.
-    - `sheet_name`: Name of the sheet being analyzed.
-    - `wb`: Workbook object being analyzed.
-    - `ws`: Worksheet object being analyzed.
-    - `tree`: Tree object representing the Excel file structure.
-    - `interpreter`: Instance of `ExcelInterpreter` for interpreting Excel files.
-"""
 class OutputAnalyzer:
+    """
+    The `OutputAnalyzer` class is responsible for analyzing and manipulating data in an Excel sheet. 
+    It provides methods for converting values based on filters, formatting values based on units, copying cell styles, inserting data according to transformer functions, unmerging cells, and finding and replacing annotated values with curve values.
 
+    Methods:
+        - `__init__(self, wb, sheet_name, path, interpreter)`: Initializes an instance of `OutputAnalyzer` with the given workbook, sheet name, file path, and interpreter.
+        - `convertFilter(self, value, unit, filter)`: Converts a value based on a filter and unit.
+        - `formatByUnit(self, val, unit)`: Formats a value based on its unit.
+        - `copyCellStyle(self, cell, new_cell)`: Copies the style of a cell to a new cell.
+        - `isInterpretable(self, value)`: Checks if a value is interpretable.
+        - `insertTransformer(self, cell, for_already_insert)`: Inserts data according to a transformer function.
+        - `unmergeCell(self, cell)`: Unmerges a cell.
+        - `findAndReplaceAnnotateValues(self)`: Finds and replaces annotated values with curve values.
+        - `save(self, path)`: Saves the modified workbook to the specified path.
+
+    Fields:
+        - `EXPRESSION`: Regular expression pattern for matching variable expressions in output cells.
+        - `FUNCTION`: Dictionary mapping function names to their corresponding keywords.
+        - `FUNCTION_TRANSFORMER`: Dictionary mapping function names to their corresponding transformer functions.
+        - `FILTERS_DISPATCH`: Dictionary mapping filter categories to their corresponding dispatch functions.
+        - `UNIT_FORMATS`: Dictionary mapping unit names to their corresponding formatting functions.
+        - `evaluator`: Instance of `ExcelCompiler` for evaluating Excel formulas.
+        - `sheet_name`: Name of the sheet being analyzed.
+        - `wb`: Workbook object being analyzed.
+        - `ws`: Worksheet object being analyzed.
+        - `tree`: Tree object representing the Excel file structure.
+        - `interpreter`: Instance of `ExcelInterpreter` for interpreting Excel files.
+    """
     EXPRESSION = r'\[[ \w().|+\-{}]+\]' # expression of a var in output's cell
     
     FUNCTION = {
@@ -1228,20 +1267,19 @@ class OutputAnalyzer:
     def save(self, path):
         self.wb.save(path)
 
-"""
-The SheetOutputGenerator class is responsible for generating the final output Excel file by replacing variables in the output sheets with their corresponding values obtained from the interpreter.
-
-Args:
-    interpreter (Interpreter): The interpreter object used to obtain the values for the variables in the output sheets.
-    output_path (str): The path to the output files.
-
-Attributes:
-    output_path (str): The path to the output files.
-    interpreter (Interpreter): The interpreter object used to obtain the values for the variables in the output sheets.
-    all_sheets (dict): A dictionary containing the analyzed output sheets for each output file.
-"""
 class SheetOutputGenerator:
-    
+    """
+    The SheetOutputGenerator class is responsible for generating the final output Excel file by replacing variables in the output sheets with their corresponding values obtained from the interpreter.
+
+    Args:
+        interpreter (Interpreter): The interpreter object used to obtain the values for the variables in the output sheets.
+        output_path (str): The path to the output files.
+
+    Attributes:
+        output_path (str): The path to the output files.
+        interpreter (Interpreter): The interpreter object used to obtain the values for the variables in the output sheets.
+        all_sheets (dict): A dictionary containing the analyzed output sheets for each output file.
+    """
     def __init__(self, interpreter, output_path):
         """
         Initializes the SheetOutputGenerator object with the specified interpreter and output path.
@@ -1294,22 +1332,21 @@ class SheetOutputGenerator:
 
         return folder_zip(folder, zip_fn)
 
-"""
-This class is responsible for checking the format of a file. 
-It loads the file using the `load_workbook` function from the `openpyxl` library and iterates over each sheet in the workbook. 
-For each sheet, it creates an instance of the `InputAnalyzer` class to analyze the sheet. 
-If the sheet is a summary sheet, it stores the summary data. 
-If the sheet is a constant or operation sheet, it adds the sheet name to the list of non-accepted files. 
-Finally, it saves the modified workbook.
-
-Fields:
-- path: The path of the file to be checked.
-- summary: The summary data extracted from the summary sheet.
-- non_accepted: A list of sheet names that are not accepted (constant or operation sheets).
-- wb: The `Workbook` object representing the loaded workbook.
-"""
 class FileChecker:
+    """
+    This class is responsible for checking the format of a file. 
+    It loads the file using the `load_workbook` function from the `openpyxl` library and iterates over each sheet in the workbook. 
+    For each sheet, it creates an instance of the `InputAnalyzer` class to analyze the sheet. 
+    If the sheet is a summary sheet, it stores the summary data. 
+    If the sheet is a constant or operation sheet, it adds the sheet name to the list of non-accepted files. 
+    Finally, it saves the modified workbook.
 
+    Fields:
+    - path: The path of the file to be checked.
+    - summary: The summary data extracted from the summary sheet.
+    - non_accepted: A list of sheet names that are not accepted (constant or operation sheets).
+    - wb: The `Workbook` object representing the loaded workbook.
+    """
     def __init__(self, path) -> None:
         """
         Initializes the `FileChecker` object with the path of the file to be checked.
