@@ -1,0 +1,6 @@
+- Résoudre bug boucle for
+- Vérifier que le traitement des dates est bon
+- Gérer l'interpolation générale
+- Construire un cas exemple
+- Résoudre bug Makefile pour générer la doc automatiquement
+- Mieux documenter le projet

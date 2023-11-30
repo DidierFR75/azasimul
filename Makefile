@@ -44,6 +44,10 @@ migration: ## Execute migrations
 graph: ## Generate model's diagram
 	$(SERVER) python3 manage.py graph_models -a -g -o aza_graph_project.png
 
+doc: ## Generate documentation
+	$(SERVER) cd ./doc; \
+	make html
+
 install: ## Init data's project
 	docker compose down
 	rm -rf data && rm -rf web/media && rm -rf web/simulator/migrations

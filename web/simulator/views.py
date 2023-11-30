@@ -19,12 +19,14 @@ from django.http import Http404
 
 from .forms import NewUserForm, SimulationForm
 from .models import Simulation, SimulationInput, MODEL_INPUT_PATH, MODEL_OUTPUT_PATH
-from .interpreter import rejectXlsFile, FileChecker, SheetOutputGenerator, SheetInterpreter, folder_zip, reject_file
+from simulator.interpreter.FileChecker import FileChecker
+from simulator.interpreter.SheetInterpreter import SheetInterpreter
+from simulator.interpreter.SheetOutputGenerator import SheetOutputGenerator
+from simulator.interpreter.Helper import Helper
 
 from openpyxl import Workbook, load_workbook
 
 import os
-import zipfile
 import shutil
 import datetime
 
@@ -38,7 +40,7 @@ def WS_update_fromForm(simul_id, form):
     # Modify excel file according to the database properties
     input_path = Simulation.getPath(simul_id,'inputs')
     for model_file in os.listdir(input_path):
-        if reject_file(model_file):
+        if Helper.reject_file(model_file):
             continue
         wb_path = input_path+"/"+model_file
         wb = load_workbook(wb_path)
@@ -227,11 +229,11 @@ def doCompute(request, simul_id, downloadInputs=False):
 
     if downloadInputs:
         zip_fn = f"SimAZA_{simulation.project_name}_inputs_{simulation.created_at.strftime('%Y-%m-%d')}"
-        zip_path = folder_zip(input_path, zip_fn)
+        zip_path = Helper.folder_zip(input_path, zip_fn)
     else:
         # Copy default .xlsx files (Common Operations, Financial...)
         for fn in os.listdir(MODEL_INPUT_PATH):
-            if rejectXlsFile(fn):
+            if Helper.rejectXlsFile(fn):
                 continue
             src = MODEL_INPUT_PATH + fn
             dst = f"{input_path}/{fn}"
@@ -286,7 +288,7 @@ def index_co(request, type):
     model = MODEL_INPUT_PATH if type == 'input' else MODEL_OUTPUT_PATH
 
     return render(request, 'co/index.html', {
-        "models": [fn for fn in os.listdir(model) if not rejectXlsFile(fn)],
+        "models": [fn for fn in os.listdir(model) if not Helper.rejectXlsFile(fn)],
         "type": type
     })
 

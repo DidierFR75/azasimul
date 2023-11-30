@@ -115,3 +115,5 @@ WTForms==2.3.3
 xlrd==2.0.1
 zipp==3.8.0
 Faker
+sphinx
+sphinxcontrib-httpdomain
