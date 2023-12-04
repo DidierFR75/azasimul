@@ -61,6 +61,9 @@ class SheetTree:
         all_sheet (dict): A dictionary with the file names as keys and a list of sheet analyzers as values.
         operation_sheets (list): A list of sheet analyzers for the operation sheets.
     """
+
+    SUMMARY_SHEET = "UseCase.xlsx"
+
     def __init__(self, path) -> None:
         """
         Initializes a new instance of the SheetTree class.
@@ -87,10 +90,16 @@ class SheetTree:
             dict: A dictionary with the file names as keys and a list of sheet analyzers as values.
         """
         result = {}
+        main_summary = []
 
         # Load all workbooks
         all_files = next(os.walk(folder), (None, None, []))[2]
         all_files = [ fn for fn in all_files if not Helper.rejectXlsFile(fn) ]
+
+        if self.SUMMARY_SHEET in all_files:
+            all_files.remove(self.SUMMARY_SHEET)
+            all_files.insert(0, self.SUMMARY_SHEET)
+
         all_wks = { file: load_workbook(folder +'/'+ file) for file in all_files }
         
         # Create dict with file: {sheetname: analyzer}
@@ -100,9 +109,11 @@ class SheetTree:
                 if sheet_name.startswith(InputAnalyzer.DELIMITER_SHEET_UNFOLLOW):
                     logger.info(f"Sheet('{sheet_name}') : SKIPPED")
                     continue
-                analyzer = InputAnalyzer(wb[sheet_name], sheet_name, folder + '/' + file)
+                analyzer = InputAnalyzer(wb[sheet_name], sheet_name, folder + '/' + file, main_summary)
                 if analyzer.loadSheet():
                     result[file].append((sheet_name, analyzer,))
+                    if file == self.SUMMARY_SHEET:
+                        main_summary = analyzer.summary
 
         return result
 

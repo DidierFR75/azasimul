@@ -50,10 +50,11 @@ $ make deploy
 
 # Data importation
 
-## Summary Datas
+## Summary Data
 
-You can put the essential information of the project in an excel sheet with the name: **summary**
-The system will consider that the first column corresponds to the name of an expected field and the following column will correspond to the value of this field.
+To provide the essential information for your project, place it in an Excel sheet named **UseCase.xlsx**. This sheet should contain the summary metadata required for the project. The system will treat the first column of this sheet as specifying the name of an expected field, and the following column will correspond to the value of that field.
+
+The **UseCase.xlsx** sheet is critical for setting key project parameters, such as the simulation frequency parameter (year, semester, quarter, month, week, day). Ensure this sheet is properly formatted and accessible so the system can extract the necessary information for the project's proper functioning.
 
 ## Curves Datas
 

@@ -84,7 +84,7 @@ class OutputAnalyzer:
         - `tree`: Tree object representing the Excel file structure.
         - `interpreter`: Instance of `ExcelInterpreter` for interpreting Excel files.
     """
-    EXPRESSION = r'\[[ \w().|+\-{}]+\]' # expression of a var in output's cell
+    VAR_EXPRESSION = r'\[[ \w().|+\-{}]+\]' # expression of a var in output's cell
     
     FUNCTION = {
         "for": "FOR:",
@@ -163,11 +163,11 @@ class OutputAnalyzer:
         valid_func = next(iter([True for key_func, value_func in self.FUNCTION.items() if value.startswith(value_func)]), False)
         
         try:
-           re.search(value, self.EXPRESSION)
+           re.search(value, self.VAR_EXPRESSION)
         except:
-            raise Exception(value, self.EXPRESSION)
+            raise Exception(value, self.VAR_EXPRESSION)
              
-        if re.search(value, self.EXPRESSION) or valid_func:
+        if re.search(value, self.VAR_EXPRESSION) or valid_func:
             return True
             
         return False
@@ -194,17 +194,23 @@ class OutputAnalyzer:
     def insertTransformer(self, cell, for_already_insert):
         """
         Insert data according to the transformer function and return True if it's done else False
+    
+        :param cell: The cell in which the transformer function is found.
+        :type cell: Cell object
+        :param for_already_insert: A flag indicating whether data has already been inserted for the transformer function.
+        :type for_already_insert: bool
+        :return: True if data is inserted based on the transformer function, False otherwise.
+        :rtype: bool
         """
-
         if isinstance(cell.value, str) and cell.value.startswith(self.FUNCTION["for"]):
             l = [item for item in self.FUNCTION_TRANSFORMER["for"] if cell.value.endswith(item)]
             if l != []:
                 l = l[0]
-                
+            
                 start = self.tree.root.analyzer.getSummaryByName("Start")["summary_value"]
                 end = self.tree.root.analyzer.getSummaryByName("End")["summary_value"]
                 delta = relativedelta(end, start)
-                
+            
                 # Add date if YEAR else add index
                 values = list(map(lambda x: self._randomize_date(start + relativedelta(years=x)) if l == "YEAR" else x+1, [item for item in range(0, delta.years+1)]))
                 unit = "date" if l == "YEAR" else None
@@ -212,7 +218,7 @@ class OutputAnalyzer:
                 if not for_already_insert:
                     for i in range(1, len(values)):
                         self.ws.insert_rows(cell.row+i)
-                
+            
                 self.ws.cell(row=cell.row, column=cell.column).value = self.formatByUnit(values[0], unit)
                 for i in range(1, len(values)):
                     self.ws.cell(row=cell.row+i, column=cell.column).value = self.formatByUnit(values[i], unit)
@@ -272,7 +278,7 @@ class OutputAnalyzer:
                         for_already_insert = True
                         continue
 
-                    matches = re.finditer(self.EXPRESSION, cell.value)
+                    matches = re.finditer(self.VAR_EXPRESSION, cell.value)
                     for match in matches:
                         node = None
                         full_match = match.group(0)

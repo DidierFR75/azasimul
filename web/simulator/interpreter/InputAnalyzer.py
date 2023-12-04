@@ -99,7 +99,7 @@ class InputAnalyzer:
     """
     BASE_ELEMENTS_ROW = 17 # Location of base's elements
     UNIT_ROW = 18 # Location of units
-    CURVE = 19 # Location of Curve's interpolations
+    CURVE_ROW = 19 # Location of Curve's interpolations
     METADATA_COL = "A"
     POINT_N_COL = "B"
     DATE_COL = "D"
@@ -113,8 +113,16 @@ class InputAnalyzer:
     OPERATION_SHEETNAME = "operation"
 
     SIMULATION_FREQUENCY_NAME = 'Simulation Frequency'
+    FREQ_MULTIPLIER = {
+        'year': 1,
+        'semester': 2,
+        'quarter': 4,
+        'month': 12,
+        'week': 52,
+        'day': 365
+    }
 
-    def __init__(self, ws, sheet_name, path) -> None:
+    def __init__(self, ws, sheet_name, path, summary=[]) -> None:
         self.evaluator = ExcelCompiler(filename=path)
         self.sheet_name = sheet_name
         self.ws = ws
@@ -124,7 +132,7 @@ class InputAnalyzer:
         self.metadatas = {}
         self.operations = {}
         self.constants = {}
-        self.summary = []
+        self.summary = summary
         self.fake = Faker()
     
     ### Util's functions
@@ -193,7 +201,7 @@ class InputAnalyzer:
 
     # Generator's functions
 
-    def _populate_by_frequency(self, points, granularity="year", X=1):
+    def _populate_by_frequency(self, points, X=1):
         """
         Populates the given list of points with interpolated dates based on a reference date.
 
@@ -229,47 +237,46 @@ class InputAnalyzer:
         if ref_date:
             for index, point in enumerate(points):
                 if point["date"] is None:
-                    point["date"] = granularity_map[granularity](ref_date["date"], X)
+                    point["date"] = granularity_map[self.getSimulationFrequency()](ref_date["date"], X)
         
         return points
 
     def _generate_points_with_dates(self):
-            """
-            Return a dictionary of points with their associated dates.
+        """
+        Return a dictionary of points with their associated dates.
 
-            This method collects the row number, point number, and date for each point in the worksheet.
-            It filters out any points that do not have a date.
-            If there are at least two points with dates, it performs linear interpolation to calculate the dates for the remaining points.
-            If there are fewer than two points with dates, it populates the missing dates based on a specified granularity.
+        This method collects the row number, point number, and date for each point in the worksheet.
+        It filters out any points that do not have a date.
+        If there are at least two points with dates, it performs linear interpolation to calculate the dates for the remaining points.
+        If there are fewer than two points with dates, it populates the missing dates based on a specified granularity.
 
-            Returns:
-            points_with_dates (dict): A dictionary containing the row number, point number, and date for each point in the worksheet.
-            """
+        Returns:
+        points_with_dates (dict): A dictionary containing the row number, point number, and date for each point in the worksheet.
+        """
 
-            points = [
-                {"row": point.row, "point_n": self.evaluate(point), "date": self.ws[self.DATE_COL+str(point.row)].value } 
-                for point in self.ws[self.POINT_N_COL] 
-                if point.value is not None and (isinstance(point.value, (int, float)) or (isinstance(point.value, str) and point.value.startswith("=")))
-            ]
+        points = [
+            {"row": point.row, "point_n": self.evaluate(point), "date": self.ws[self.DATE_COL+str(point.row)].value } 
+            for point in self.ws[self.POINT_N_COL] 
+            if point.value is not None and (isinstance(point.value, (int, float)) or (isinstance(point.value, str) and point.value.startswith("=")))
+        ]
+    
+        valid_points = [ pt for pt in points if pt["date"] is not None ]
         
-            valid_points = [ pt for pt in points if pt["date"] is not None ]
-            # Check if exist at least 2 dates in points
-            if len(valid_points) >= 2:
-                x = list(range(len(valid_points)))
-                try:
-                    y = list(map(datetime.timestamp, [pt["date"] for pt in valid_points]))
-                except Exception as e:
-                    raise e
-                interp1d = interpolate.interp1d(x, y, fill_value="extrapolate") 
-                interpolated_timestamps = interp1d(x)
-                for pt, interpolated_timestamp in zip(valid_points, interpolated_timestamps):
-                    pt["date"] = datetime.fromtimestamp(interpolated_timestamp)
-                for pt, interpolated_timestamp in zip(points, interpolated_timestamps):
-                    if pt["date"] is None:
-                        pt["date"] = datetime.fromtimestamp(interpolated_timestamp)
-                return points
-            else:
-                return self._populate_by_frequency(points, self.getSimulationFrequency())
+        # Check if exist at least 2 dates in points
+        if len(valid_points) >= 2:
+            x = [points.index(pt) for pt in valid_points]
+            y = [pt["date"].timestamp() for pt in valid_points]
+
+            interp1d = interpolate.interp1d(x, y, fill_value="extrapolate")
+            interpolated_timestamps = interp1d(range(len(points)))
+
+            for pt, ts in zip(points, interpolated_timestamps):
+                if pt["date"] is None:
+                    pt["date"] = datetime.fromtimestamp(ts)
+            
+            return points
+        else:
+            return self._populate_by_frequency(points, self.getSimulationFrequency())
 
     def _generateCurves(self):
         """
@@ -281,7 +288,7 @@ class InputAnalyzer:
             "curve_name": self._clean_string(be.value),
             "values": None,
             "unit": self.ws.cell(row=self.UNIT_ROW, column=be.column).value, 
-            "interpolation": self.ws.cell(row=self.CURVE, column=be.column).value
+            "interpolation": self.ws.cell(row=self.CURVE_ROW, column=be.column).value
         } for be in self.ws[self.BASE_ELEMENTS_ROW] if be.value is not None][2:], key=lambda x: x["column"])
 
     def _generateMetaData(self):
@@ -352,6 +359,83 @@ class InputAnalyzer:
 
         return result
 
+    def _determine_current_frequency(self, points):
+        """
+        Determines the closest frequency based on the average time difference between consecutive points in a time series.
+
+        Args:
+            points (list): A list of dictionaries representing the points in a time series, where each dictionary has a "date" key.
+
+        Returns:
+            str: The determined frequency based on the average time difference between consecutive points.
+        """
+        if len(points) < 2:
+            return 'year'  # Default if not enough points to determine
+
+        # Calculate time differences between consecutive points
+        date_diffs = [points[i+1]['date'] - points[i]['date'] for i in range(len(points)-1)]
+        avg_diff = sum(date_diffs, timedelta(0)) / len(date_diffs)
+
+        # Dictionary to associate the average time difference with a frequency
+        diff_to_freq = {
+            'year': timedelta(days=365),
+            'semester': timedelta(days=182.5),
+            'quarter': timedelta(days=91.25),
+            'month': timedelta(days=30.44),
+            'week': timedelta(days=7),
+            'day': timedelta(days=1)
+        }
+
+        # Find the frequency closest to the mean difference
+        closest_frequency = min(diff_to_freq, key=lambda k: abs(diff_to_freq[k] - avg_diff))
+
+        return closest_frequency
+
+    def _adjust_points_frequency(self, points, frequency, current_frequency):
+        target_multiplier = self.FREQ_MULTIPLIER[frequency]
+        current_multiplier = self.FREQ_MULTIPLIER[current_frequency]
+
+        adjusted_points = []
+
+        if current_multiplier < target_multiplier:
+            row_increment = 1
+
+            factor = target_multiplier // current_multiplier
+            interval = timedelta(days=365 // target_multiplier)  # Interval pour "semester"
+
+            for idx, point in enumerate(points):
+                adjusted_points.append(point)  # Ajouter le point original
+                
+                for i in range(1, factor):
+                    new_date = None
+                    new_row = point['row'] + row_increment * i
+
+                    if point['date'] is not None:
+                        new_date = point['date'] + interval * i
+                                        
+                    adjusted_point = {
+                        "row": new_row,  # Mise à jour du numéro de ligne
+                        "point_n": row_increment,
+                        "date": new_date
+                    }
+                    adjusted_points.append(adjusted_point)
+
+        elif current_multiplier > target_multiplier:
+            factor = current_multiplier // target_multiplier
+            adjusted_points = points[::factor]
+
+        else:
+            adjusted_points = points.copy()
+
+        # Update point numbers and row numbers
+        base_row = points[0]['row']
+        for idx, point in enumerate(adjusted_points):
+            point['point_n'] = idx
+            point['row'] = base_row + idx
+        
+        self.points = adjusted_points
+        return adjusted_points
+
     def _getValuesByCurve(self, curve):
         result = []
         value = None
@@ -373,8 +457,9 @@ class InputAnalyzer:
 
     def _evaluateInterpolation(self, curve):
         result = []
-        values = self._getValuesByCurve(curve)
-        
+        values = self._getValuesByCurve(curve) # Récupère les valeurs de la courbe non nulles
+                
+        # Interpolate values
         if (curve["interpolation"] == "CONST" and len(values) > 0) or (curve["interpolation"] is None and len(values) == 1):
             result = [next(item["value"] for item in values if item["value"] is not None)] * len(self.points)
         elif len(values) >= 2:
@@ -384,8 +469,25 @@ class InputAnalyzer:
             else:
                 interp1d = interpolate.interp1d(xs,ys, fill_value="extrapolate")
 
-            # Add result of interpolation for each point
+            # Add result of interpolation for each point (date and value)
             result = [float(interp1d(point["row"])) for point in self.points]
+            for point in self.points:
+                point["n_points"] = float(interp1d(point["row"]))
+            self.points = self._generate_points_with_dates()
+        
+            # Determine the current frequency of points
+            current_frequency = self._determine_current_frequency(self.points)
+
+            # Get the desired simulation frequency
+            simulation_frequency = self.getSimulationFrequency()
+
+            # Adjust points if necessary
+            if current_frequency != simulation_frequency:
+
+                self.points = self._adjust_points_frequency(self.points, simulation_frequency, current_frequency)
+                # Add result of interpolation for each point
+                result = [float(interp1d(point["row"])) for point in self.points]
+
         return result
 
     # Init Functions
@@ -427,7 +529,7 @@ class InputAnalyzer:
         # Interpolate values  
         for curve in self.curves:
             curve["values"] = self._evaluateInterpolation(curve)       
-        
+
         return True
     
     # Add Functions
@@ -481,8 +583,7 @@ class InputAnalyzer:
         return next(result, None)
 
     def getSimulationFrequency(self):
-        return self.getSummaryByName(self.SIMULATION_FREQUENCY_NAME).lower() if self.getSummaryByName(self.SIMULATION_FREQUENCY_NAME) is not None else "year"
-
+        return self.getSummaryByName(self.SIMULATION_FREQUENCY_NAME)["summary_value"].lower() if self.getSummaryByName(self.SIMULATION_FREQUENCY_NAME) is not None else "year"
     def getOperationByName(self, name):
         result = iter([item for item in self.operations if item["operation_name"].lower() == name.lower()])
         return next(result, None)                        
@@ -491,3 +592,4 @@ class InputAnalyzer:
         if self.CATEGORY in self.metadatas:
             return str(self.metadatas[self.CATEGORY])
         return None
+    
