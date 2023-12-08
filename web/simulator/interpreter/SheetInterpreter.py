@@ -99,6 +99,7 @@ class SheetInterpreter:
         self.node_categories = list(self.tree.root.categories.keys()) # list(map(lambda x: x.lower(), list(self.tree.root.categories.keys())))
         self.operations = {cat: [] for cat in self.node_categories}
         self.operations["root"] = []
+        raise Exception(self.operations)
     
     # Utils functions
 
@@ -175,7 +176,6 @@ class SheetInterpreter:
             raise Exception("replaceOneVarByValue needs all parameters to be filled.")
 
         correct_word = word.replace("[", "").replace("]", "")
-
         line_number = None
         # Check for "!" and extract line number 
         if '!' in correct_word:
@@ -357,7 +357,6 @@ class SheetInterpreter:
         """
         for analyzer in self.tree.operation_sheets:
             for category, l_operations in analyzer.operations.items():
-
                 if category is None or l_operations is None or not isinstance(category, str):
                     raise Exception('ReplaceFcnByVar needs category and operations')
 

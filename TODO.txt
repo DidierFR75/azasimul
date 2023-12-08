@@ -1,3 +1,6 @@
 - Construire un cas exemple
 - Résoudre bug Makefile pour générer la doc automatiquement
 - Mieux documenter le projet
+
+Améliorations possibles : 
+- Améliorer l'upload avec https://uppy.io
