@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import scipy as sp
 from scipy import interpolate
+from scipy.stats import linregress
+from scipy.optimize import curve_fit
 from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from pycel import ExcelCompiler
@@ -170,6 +172,44 @@ class InputAnalyzer:
         lin_interp = interpolate.interp1d(logx, logy, kind=kind, fill_value="extrapolate")
         log_interp = lambda zz: np.power(10.0, lin_interp(np.log10(zz)))
         return log_interp
+    
+    def determine_interpolation_type(self, values):
+        values = [float(v) for v in values]
+        x = np.arange(len(values))
+
+        # Checks if all values are constant
+        if all(value == values[0] for value in values):
+            return "CONST"
+
+        # Calculating R^2 to evaluate fit
+        def calculate_r_squared(y_true, y_fit):
+            ss_res = np.sum((y_true - y_fit) ** 2)
+            ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
+            return 1 - (ss_res / ss_tot)
+
+        # Linear interpolation
+        slope, intercept, r_value, _, _ = linregress(x, values)
+        if r_value**2 > 0.95:
+            return "LINEAR"
+
+        # Other types of interpolation
+        interpolations = {
+            "LOG": lambda x, a, b: a * np.log(x) + b,
+            "EXP": lambda x, a, b: a * np.exp(b * x),
+            "SIN": lambda x, a, b, c: a * np.sin(b * x) + c,
+            # Add here other types of interpolation with their corresponding functions
+        }
+
+        for name, func in interpolations.items():
+            try:
+                popt, _ = curve_fit(func, x, values, maxfev=10000)
+                if calculate_r_squared(values, func(x, *popt)) > 0.95:
+                    return name
+            except:
+                pass
+
+        return "Unknown"
+
 
     def evaluate(self, cell):
         """
@@ -484,6 +524,15 @@ class InputAnalyzer:
 
     # Init Functions
 
+    def _define_num_points(self):
+        frequency = self.getSimulationFrequency()
+        duration_in_years = int(self.getSummaryByName(self.SIMULATION_END_NAME)["summary_value"].year) - int(self.getSummaryByName(self.SIMULATION_STARTDATE_NAME)["summary_value"].year)
+        if frequency in self.FREQ_MULTIPLIER:
+            self.duration_in_years = duration_in_years
+            self.num_points = duration_in_years * self.FREQ_MULTIPLIER[frequency]
+        else:
+            raise Exception(f"Frequency {frequency} not recognized")
+        
     def loadSheet(self):
         """
             Return JSON storage of the input
@@ -511,14 +560,8 @@ class InputAnalyzer:
         logger.info(f"loadSheet('{self.sheet_name}') : Curves_Sheet")
 
         # Get number of points
-        frequency = self.getSimulationFrequency()
-        duration_in_years = int(self.getSummaryByName(self.SIMULATION_END_NAME)["summary_value"].year) - int(self.getSummaryByName(self.SIMULATION_STARTDATE_NAME)["summary_value"].year)
-        if frequency in self.FREQ_MULTIPLIER:
-            self.duration_in_years = duration_in_years
-            self.num_points = duration_in_years * self.FREQ_MULTIPLIER[frequency]
-        else:
-            raise Exception(f"Frequency {frequency} not recognized")
-        
+        self._define_num_points()
+       
         # Get all elements in worksheet
         self.metadatas = self._generateMetaData()
         self.points = self._generate_points_with_dates()
@@ -527,7 +570,7 @@ class InputAnalyzer:
         if self.isCurvesSheet() and self.metadatas == {}:
             raise Exception("Metadatas are missing...{}".format(self.sheet_name))
         
-        # Interpolate values  
+        # Interpolate values      
         for curve in self.curves:
             curve["values"] = self._evaluateInterpolation(curve)       
 
@@ -535,11 +578,14 @@ class InputAnalyzer:
     
     # Add Functions
 
-    def addCurve(self, specifcation_name, value, unit, interpolation="CONST"):
+    def addCurve(self, specifcation_name, values, unit):
         """
         Add new Curve to the analyzer, if curve exists we do nothing
         """
 
+        if values is None or len(values) != self.num_points:
+            raise Exception("Error on values point for curve '{}'".format(specifcation_name))
+        
         if self.getCurveByName(specifcation_name) is not None:
             return None
 
@@ -548,9 +594,9 @@ class InputAnalyzer:
         self.curves.append({
             "column": next_free_column,
             "curve_name": self._clean_string(specifcation_name),
-            "values": [value] * len(self.points), 
+            "values": values, 
             "unit": unit if unit is not None else "",
-            "interpolation": interpolation
+            "interpolation": self.determine_interpolation_type(values)
         })
     
     def addSummary(self, summary_name, value, unit):

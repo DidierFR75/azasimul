@@ -92,6 +92,7 @@ class SheetInterpreter:
 
     FCN_EXPR = '\{[ \_\(\)\-\|\.a-zA-Z0-9!]+\}'
     VAR_EXPR = '\[[ \_\(\)\|\-\+a-zA-Z0-9\.!]+\]'
+    FLOAT_PRECISION = 4
 
     def __init__(self, folder) -> None:
         self.tree = SheetTree(folder)
@@ -99,7 +100,6 @@ class SheetInterpreter:
         self.node_categories = list(self.tree.root.categories.keys()) # list(map(lambda x: x.lower(), list(self.tree.root.categories.keys())))
         self.operations = {cat: [] for cat in self.node_categories}
         self.operations["root"] = []
-        raise Exception(self.operations)
     
     # Utils functions
 
@@ -157,83 +157,68 @@ class SheetInterpreter:
         return value
 
     # Functions to search and replace variables and functions
-    
-    def replaceOneVarByValue(self, word, default_node, category, scope):
-        """
-        Replace a variable in a formula with its corresponding value based on the category and scope of the operation.
 
-        Args:
-            word (str): The variable to be replaced in the formula.
-            default_node (Node): The default node to be used for replacing variables.
-            category (str): The category of the operation.
-            scope (str): The scope of the operation.
-
-        Returns:
-            The corresponding value of the variable in the formula.
-        """
-
+    ## replaceOneVarByValue
+    def replaceOneVarByValue(self, word, default_node, category, scope, position=0):
         if word is None or category is None:
             raise Exception("replaceOneVarByValue needs all parameters to be filled.")
 
-        correct_word = word.replace("[", "").replace("]", "")
+        correct_word, line_number = self._extract_correct_word_and_line(word)
+        attr = self._parse_variable_name(correct_word, category)
+        node = self._find_appropriate_node(attr, default_node, scope)
+        
+        return self._get_variable_value(node, attr, line_number, position)
+
+    def _extract_correct_word_and_line(self, word):
+        correct_word = word.strip("[]")
         line_number = None
-        # Check for "!" and extract line number 
         if '!' in correct_word:
-            # Extract variable name and line number (if present)
             correct_word, line_info = re.match(r'(.*?)!(\d+)', correct_word).groups()
             line_number = int(line_info)
+        return correct_word, line_number
 
-        attr = correct_word.split('.')
-
+    def _parse_variable_name(self, word, category):
+        attr = word.split('.')
         if len(attr) == 1:
             attr.insert(0, category)
+        return attr
 
+    def _find_appropriate_node(self, attr, default_node, scope):
         if len(attr) > 1:
-            node = self.findNode(self.tree.root, attr[0], scope)
+            return self.findNode(self.tree.root, attr[0], scope)
         else:
-            node = default_node
+            return default_node
 
-        # It is a constant
-        if len(attr) == 3 and node.analyzer.isConstantSheet():
+    def _get_variable_value(self, node, attr, line_number, position=0):
+        if node.analyzer.isConstantSheet():
             constant = node.analyzer.getConstantByCategoryAndName(attr[1], attr[2])
-            if constant is not None:
-                return constant["value"]
-
-            return None
+            return constant["value"] if constant else None
 
         if node.analyzer.isSummarySheet():
             cw = attr[1].split('|')
-
             summary = node.analyzer.getSummaryByName(cw[0])
 
             if summary:
-                if len(cw) == 2:
-                    return self.convertFilter(summary["summary_value"], summary["unit"], cw[1])
-
-                return summary["summary_value"]
+                return self.convertFilter(summary["summary_value"], summary["unit"], cw[1]) if len(cw) == 2 else summary["summary_value"]
             return None
 
         if node.analyzer.isCurvesSheet():
             spec = node.analyzer.getCurveByName(attr[1])
-
-            if spec is not None:
+            if spec:
                 if spec["interpolation"] == "CONST":
                     return spec["values"][0]
                 else:
                     try:
-                        if line_number is not None and line_number <= len(spec["values"]):
-                            val = spec["values"][line_number]
-                        else:
-                            val = spec["values"][0]
-                    except:
-                        raise Exception("Can't access data values ", spec)
-                    return val
+                        return spec["values"][line_number] if line_number is not None and line_number <= len(spec["values"]) else spec["values"][position]
+                    except Exception as e:
+                        raise Exception(f"Can't access data values for {spec}: {e}")
             else:
-                raise Exception('Error: replaceOneVarByValue()', word, node, category, scope, attr, node.analyzer.curves)
+                raise Exception(f'No curve found with name {attr[1]} in {node.name}')
 
         return None
-    
-    def replaceAllVarsByValue(self, opStr, default_node, category, scope):
+
+    ## replaceAllVarsByValue
+    def replaceAllVarsByValue(self, opStr, default_node, category, scope, position=0):
         """
         Replaces all variables in a formula string with their corresponding values.
 
@@ -248,12 +233,13 @@ class SheetInterpreter:
         """
         # Replace first all vars [] by value in result
         for m in re.finditer(self.VAR_EXPR, opStr):
-            opStr = opStr.replace(m.group(0), str(self.replaceOneVarByValue(m.group(0), default_node, category, scope)))
+            opStr = opStr.replace(m.group(0), str(self.replaceOneVarByValue(m.group(0), default_node, category, scope, position)))
         return opStr
-
-    def replaceFcnByVar(self, opStr, category, scope):
+    
+    ## replaceFcnByVar
+    def replaceFcnByVar(self, opStr, category, scope, position=0):
         """
-        Replace all function placeholders ({}) in the formula with their corresponding values ([]).
+        Replace all function placeholders in the formula with their corresponding values.
 
         Args:
             opStr (str): The formula string to be evaluated.
@@ -261,90 +247,88 @@ class SheetInterpreter:
             scope (str): The scope of the operation.
 
         Returns:
-            str: The modified formula string with all function placeholders replaced by their evaluated values.
+            str: The modified formula string.
         """
-        matches = re.finditer(self.FCN_EXPR, opStr)
-        while matches is not None:
+        while True:
+            matches = list(re.finditer(self.FCN_EXPR, opStr))
+            if not matches:
+                break
+
             for match in matches:
-                according_op = None
-                wks = None
+                fcn_name, line_number = self._extract_function_name_and_line_number(match.group(0))
+                attr = self._parse_function_name(fcn_name, category)
+                opStr = self._process_function(opStr, attr, line_number, scope, match, position)
 
-                fcn_name = match.group(0).replace("{", "").replace("}", "").strip()
-        
-                line_number = None
-                # Check for "!" and extract line number
-                if '!' in fcn_name:
-                    # Extract variable name and line number (if present)
-                    fcn_name, line_info = re.match(r'(.*?)!(\d+)', fcn_name).groups()
-                    line_number = int(line_info)
-                
-                attr = fcn_name.split('.')
+        return self._finalize_string(opStr)
 
-                # if operation exist in list operation, add the value of it in it
-                if len(attr) > 2:
-                    raise Exception("unknown function syntax for:", attr)
-            
-                if len(attr) == 1:
-                    attr.insert(0, category)
-            
-                according_op = self.findOperation(attr[0], attr[1])
+    def _extract_function_name_and_line_number(self, fcn_str):
+        fcn_name = fcn_str.strip("{}").strip()
+        line_number = None
+        if '!' in fcn_name:
+            fcn_name, line_info = re.match(r'(.*?)!(\d+)', fcn_name).groups()
+            line_number = int(line_info)
+        return fcn_name, line_number
 
-                if according_op is not None:
-                    related_nodes = findall(self.tree.root, lambda n: n.name.lower() == attr[0].lower())
-                else:
-                    raise Exception("prb :", attr, match.group(0), fcn_name)
-            
-                if according_op is not None and related_nodes != ():
-                    for wks in related_nodes:                            
-                        # Transform all {} in children by interpretable {}
-                        accStr = according_op["operation"]
-                        for m in re.finditer(self.FCN_EXPR, accStr):
-                            rpl = m.group(0).replace("{", "").replace("}", "").strip()
-                            if line_number is not None:
-                                rpl = rpl+"!"+str(line_number)
+    def _parse_function_name(self, fcn_name, category):
+        attr = fcn_name.split('.')
+        if len(attr) == 1:
+            attr.insert(0, category)
+        elif len(attr) > 2:
+            raise Exception("unknown function syntax for:", attr)
+        return attr
 
-                            if len(rpl.split(".")) == 1:
-                                accStr = accStr.replace(m.group(0), "{"+attr[0]+"."+rpl+"}")
+    def _process_function(self, opStr, attr, line_number, scope, match, position=0):
+        according_op = self.findOperation(attr[0], attr[1])
+        if according_op is None:
+            raise Exception("prb :", attr, match.group(0), attr[0], attr[1])
 
-                        accStr = self.replaceAllVarsByValue(accStr, wks, attr[0], scope)
-                    
-                        opStr = opStr.replace(match.group(0), "("+ accStr+ ")")
-                        try:
-                            opStr = str(round(eval(opStr), 10))
-                        except:
-                            pass
-                else:
-                    raise Exception("A problem is in :", attr, match.group(0))    
+        related_nodes = findall(self.tree.root, lambda n: n.name.lower() == attr[0].lower())
+        if not related_nodes:
+            raise Exception("A problem is in :", attr, match.group(0))    
 
-            if re.search(self.FCN_EXPR, opStr) is not None:
-                matches = re.finditer(self.FCN_EXPR, opStr)
-            else:
-                matches = None
-        try:
-            opStr = str(round(eval(opStr), 10))
-        except:
-            pass
+        for wks in related_nodes:                            
+            accStr = self._replace_functions_with_values(according_op["operation"], attr, line_number)
+            accStr = self.replaceAllVarsByValue(accStr, wks, attr[0], scope, position)
+            opStr = opStr.replace(match.group(0), "("+ accStr+ ")")
+
         return opStr
 
+    def _replace_functions_with_values(self, accStr, attr, line_number):
+        for m in re.finditer(self.FCN_EXPR, accStr):
+            rpl = m.group(0).strip("{}").strip()
+            if line_number is not None:
+                rpl = rpl + "!" + str(line_number)
+            if len(rpl.split(".")) == 1:
+                accStr = accStr.replace(m.group(0), "{"+attr[0]+"."+rpl+"}")
+        return accStr
+
+    def _finalize_string(self, opStr):
+        try:
+            return str(round(eval(opStr), self.FLOAT_PRECISION)) # Attention si l'user met rm -rf * par exemple !!
+        except:
+            return opStr
+    
     def mapOperationValues(self, list_operations, category, scope):
         try:
             default_node = self.findNode(self.tree.root, category, scope, verbose=False)
 
             if default_node:                  
-                copy_operations = deepcopy(list_operations)    
+                operation_matrix = []                 
                 
-                for index, op in enumerate(copy_operations):                            
+                for index, op in enumerate(list_operations):
                     if op["operation"] is None:
                         raise Exception("Operation can't be null :", op)
-            
-                    opStr = self.replaceAllVarsByValue(op["operation"], default_node, category, scope)
-                    op["operation"] = self.replaceFcnByVar(opStr, category, scope)
                     
-                    op["node_category"] = default_node
-
-                    copy_operations[index] = op
-                    
-                return copy_operations
+                    # Create operations matrix
+                    operation = {"operation_name": op["operation_name"], "formula" : op["operation"], "unit": op["unit"], "operations": []}
+                    for position in range(self.tree.num_points):
+                        opStr = self.replaceAllVarsByValue(op["operation"], default_node, category, scope, position)
+                        operation["operations"].append(self.replaceFcnByVar(opStr, category, scope, position))
+                        
+                    operation["node_category"] = default_node
+                    operation_matrix.append(operation)
+                                                                    
+                return operation_matrix
         except Exception as e:
             logger.error(e)
             raise e
@@ -365,7 +349,9 @@ class SheetInterpreter:
                     values = self.mapOperationValues(l_operations, category, dst)
 
                     if values:
-                        stored_operations.append(values) 
+                        stored_operations.append(values)
+    
+        return stored_operations
 
     # Render functions
     def evaluate(self):
@@ -379,15 +365,11 @@ class SheetInterpreter:
         # Eval all operations
         for dst, list_operations in self.operations.items():
             for operations in list_operations:
-                    for operation in operations:
-                        try:
-                            # Attention si l'user met rm -rf * par exemple !!
-                            # logging.log(operation["operation"])
-                            operation["operation"] = round(eval(str(operation["operation"])), 4)
-                            # logging.log(operation["operation"])
-                            if operation["node_category"].analyzer.isSummarySheet():
-                                operation["node_category"].analyzer.addSummary(operation["operation_name"], operation["operation"], operation["unit"])
-                            elif operation["node_category"].analyzer.isCurvesSheet():
-                                operation["node_category"].analyzer.addCurve(operation["operation_name"], operation["operation"], operation["unit"], "CONST")
-                        except Exception as e:
-                            raise Exception("Error for evaluation of operations", operation, e)
+                for operation in operations:
+                    try:
+                        if operation["node_category"].analyzer.isSummarySheet():
+                            operation["node_category"].analyzer.addSummary(operation["operation_name"], operation["operations"][0], operation["unit"])
+                        elif operation["node_category"].analyzer.isCurvesSheet():
+                            operation["node_category"].analyzer.addCurve(operation["operation_name"], operation["operations"], operation["unit"])
+                    except Exception as e:
+                        raise Exception("Error for evaluation of operations", operation, e)

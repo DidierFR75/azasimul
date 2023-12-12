@@ -264,98 +264,82 @@ class OutputAnalyzer:
         return node
 
     def findAndReplaceAnnotateValues(self):
-        """
-        Find and replace all annotate's values by their curve's value
-        """
-        
-        for row in self.ws:
+        for row in self.ws.iter_rows():
             for_already_insert = False
             for cell in row:
-                # add new row if not already did
-                if self.isInterpretable(cell.value):
-                    
-                    if self.insertTransformer(cell, for_already_insert):
-                        for_already_insert = True
-                        continue
+                if not self.isInterpretable(cell.value):
+                    continue
 
-                    matches = re.finditer(self.VAR_EXPRESSION, cell.value)
-                    for match in matches:
-                        node = None
-                        full_match = match.group(0)
-                        inner_content = full_match.strip('[]')  # Remove the brackets
-                        parts = inner_content.split('|')
+                if self.insertTransformer(cell, for_already_insert):
+                    for_already_insert = True
+                    continue
 
-                        variable_part = parts[0]
-
-                        if len(parts) > 1:
-                            filter = parts[1].lower()
+                for full_match in re.findall(self.VAR_EXPRESSION, cell.value):
+                    inner_content = full_match.strip('[]')
+                    variable_part, filter = self.splitVariablePart(inner_content)
+                    node, line_number = self.getNodeAndLineNumber(variable_part)
+                    if node:
+                        val = self.getVariableValue(node, variable_part, line_number)
+                        if self.isForDirective(cell.value) and not for_already_insert:
+                            self.insertRowsForDirective(cell, node, val)
+                            for_already_insert = True
                         else:
-                            filter = None
+                            cell.value = val if val is not None else ""
 
-                        line_number = None
-                        if '{' in variable_part:
-                            # Extract the variable name and line number if present
-                            variable_part, line_info = re.match(r'(.*?){(\d+)}', variable_part).groups()
-                            line_number = int(line_info)
+    def splitVariablePart(self, inner_content):
+        parts = inner_content.split('|')
+        variable_part = parts[0]
+        filter = parts[1].lower() if len(parts) > 1 else None
+        return variable_part, filter
 
-                        attr = variable_part.split(".")
+    def getNodeAndLineNumber(self, variable_part):
+        line_number = None
+        if '{' in variable_part:
+            variable_part, line_info = re.match(r'(.*?){(\d+)}', variable_part).groups()
+            line_number = int(line_info)
 
-                        if len(attr) > 1:                            
-                            node = self.findNode(self.tree.root, attr[0], filter, verbose=False)
+        attr = variable_part.split(".")
+        node = self.findNode(self.tree.root, attr[0], filter, verbose=False) if len(attr) > 1 else None
+        return node, line_number
 
-                            if node is not None:
-                                data = None
-                                val = {}
+    def getVariableValue(self, node, variable_part, line_number):
+        attr = variable_part.split(".")
+        if node.analyzer.isCurvesSheet():
+            data = node.analyzer.getCurveByName(attr[1])
+            if data and data["interpolation"] != "CONST":
+                try:
+                    return data["values"][line_number] if line_number else data["values"][0]
+                except IndexError:
+                    raise Exception("Invalid line number for curve data")
+            return data["values"][0] if data else None
 
-                                if node.analyzer.isCurvesSheet():
-                                    data = node.analyzer.getCurveByName(attr[1])
-                                                    
-                                    if data is not None:
-                                        # Interprete FOR directive according to val
-                                        if cell.value.startswith(self.FUNCTION["for"]) and [item for item in self.FUNCTION_TRANSFORMER["for"] if cell.value.endswith(item)] == []:
-                                            start = self.tree.root.analyzer.getSummaryByName("Start")["summary_value"]
-                                            end = self.tree.root.analyzer.getSummaryByName("End")["summary_value"]
-                                            delta = relativedelta(end, start)
-                                            nb_points = delta.years
+        if node.analyzer.isConstantSheet() and len(attr) > 2:
+            data = node.analyzer.getConstantByCategoryAndName(attr[1], attr[2])
+            return data["value"] if data else None
 
-                                            # if for not previously added and insert necessary row
-                                            if not for_already_insert:
-                                                for_already_insert = True
-                                                for i in range(1, nb_points):
-                                                    self.ws.insert_rows(cell.row+i)
-                                            
-                                            # Add values to each cell
-                                            for i in range(0, nb_points):
-                                                self.ws.cell(row=cell.row+i, column=cell.column).value = self.formatByUnit(data["values"][i], data["unit"])
-                                                self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
-                                            continue
-                                        
-                                        # Get data value
-                                        if data["interpolation"] == "CONST":
-                                            try:
-                                                val = data["values"][0]
-                                            except:
-                                                raise Exception("No value found for : ", data)
-                                        else:
-                                            try:
-                                                if line_number is not None and line_number <= len(data["values"]):
-                                                    val = data["values"][line_number]
-                                                else:
-                                                    val = data["values"][0]
-                                            except:
-                                                raise Exception("Can't access data values ", data)
-                                            
-                                if node.analyzer.isConstantSheet() and len(attr) > 2:
-                                    data = node.analyzer.getConstantByCategoryAndName(attr[1], attr[2])
-                                    val = data["value"] if data is not None else None                    
+        if node.analyzer.isSummarySheet():
+            data = node.analyzer.getSummaryByName(attr[1])
+            return data["summary_value"] if data else None
 
-                                if node.analyzer.isSummarySheet():
-                                    data = node.analyzer.getSummaryByName(attr[1])
-                                    val = data["summary_value"] if data is not None else None
+        return None
 
-                                val = self.formatByUnit(val, data["unit"]) if data is not None and "unit" in data else val
-                                
-                                cell.value = val if val != {} and val is not None else ""
+    def isForDirective(self, cell_value):
+        return cell_value.startswith(self.FUNCTION["for"]) and not any(
+            cell_value.endswith(item) for item in self.FUNCTION_TRANSFORMER["for"]
+        )
+
+    def insertRowsForDirective(self, cell, node, val):
+        start = self.tree.root.analyzer.getSummaryByName("Start")["summary_value"]
+        end = self.tree.root.analyzer.getSummaryByName("End")["summary_value"]
+        delta = relativedelta(end, start)
+        nb_points = delta.years
+
+        for i in range(1, nb_points):
+            self.ws.insert_rows(cell.row + i)
+        for i in range(nb_points):
+            target_cell = self.ws.cell(row=cell.row + i, column=cell.column)
+            target_cell.value = self.formatByUnit(val, node.analyzer.unit if "unit" in node.analyzer else None)
+            self.copyCellStyle(cell, target_cell)
 
     def save(self, path):
         self.wb.save(path)

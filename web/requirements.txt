@@ -117,3 +117,5 @@ zipp==3.8.0
 Faker
 sphinx
 sphinxcontrib-httpdomain
+Celery
+snakeviz

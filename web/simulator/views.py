@@ -30,7 +30,6 @@ import os
 import shutil
 import datetime
 
-
 @login_required(login_url="simulator:login")
 def index(request):
     simulations = Simulation.objects.all()
@@ -247,7 +246,7 @@ def doCompute(request, simul_id, downloadInputs=False):
         result_path = Simulation.getPath(simul_id,'outputs')
         zip_fn = f"SimAZA_{simulation.project_name}_{simulation.created_at.strftime('%Y-%m-%d')}"
         zip_path = generator.generate(result_path, zip_fn)
-
+    
     zip_fn += ".zip"
     return response_zip_file(zip_path, zip_fn)
 

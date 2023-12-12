@@ -29,6 +29,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"] # Not safe for production !!!
 
+CELERY_BROKER_URL = 'redis://redis:6379/0'
+
 # Application definition
 
 INSTALLED_APPS = [

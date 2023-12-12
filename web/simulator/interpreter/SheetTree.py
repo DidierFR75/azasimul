@@ -12,6 +12,7 @@ from copy import copy, deepcopy
 from faker import Faker
 from .InputAnalyzer import InputAnalyzer
 from .Helper import Helper
+from .Helper import better_time_tracker
 
 import logging
 import os
@@ -79,6 +80,9 @@ class SheetTree:
 
         self.all_sheet = None
         self.operation_sheets = []
+
+        self.num_points = 0
+   
     def readAllSheetsFromFolder(self, folder):
         """
         Reads all the sheets from a folder and returns a dictionary with the file names as keys and a list of sheet analyzers as values.
@@ -103,6 +107,7 @@ class SheetTree:
         all_wks = { file: load_workbook(folder +'/'+ file) for file in all_files }
         
         # Create dict with file: {sheetname: analyzer}
+        test = []
         for file, wb in all_wks.items():
             result[file] = []
             for sheet_name in wb.sheetnames:
@@ -114,9 +119,11 @@ class SheetTree:
                     result[file].append((sheet_name, analyzer,))
                     if file == self.SUMMARY_SHEET:
                         main_summary = analyzer.summary
-
+                    if analyzer.num_points != 0:
+                        self.num_points = analyzer.num_points
+    
         return result
-
+    
     def mapSheetsToFormulaTree(self, path=None):
         """
         Maps the sheets to the formula tree structure.
@@ -131,6 +138,7 @@ class SheetTree:
         # Create all nodes
         for _file, wbSheets in self.all_sheet.items():
             for sheet_name, analyzer in wbSheets:
+                
                 if analyzer.isOperationSheet():
                     self.operation_sheets.append(analyzer)
                     continue
@@ -141,17 +149,7 @@ class SheetTree:
 
                 if analyzer.isSummarySheet():
                     if not hasattr(self.root, "analyzer"):
-                        self.root.analyzer = analyzer
-                    else:
-                        # Delete summary value with same key that root_summary
-                        for root_summary in self.root.analyzer.summary:
-                            for summary in analyzer.summary:
-                                if root_summary["summary_name"].lower() == summary["summary_name"].lower():
-                                    del summary
-                        # Merge summaries values
-                        for summary in analyzer.summary:
-                            self.root.analyzer.summary.append(summary)
-                                                        
+                        self.root.analyzer = analyzer                                    
                     continue
 
                 if analyzer.metadatas == {}:
@@ -170,7 +168,7 @@ class SheetTree:
                     self.root.categories[category.lower()] = category.upper()+":"
                     node.category = category.lower()
                                             
-                nodes.append( (parentName, productType, node ) )
+                nodes.append( (parentName, productType, node) )
         
         # Add parent for all nodes
         for element in nodes:
