@@ -427,7 +427,7 @@ class InputAnalyzer:
         freq_rule = Helper.PD_FREQ_MULTIPLIER[frequency]
         date_range = pd.date_range(
             start=self.getSummaryByName(Helper.SIMULATION_STARTDATE_NAME)["summary_value"],
-            end=self.getSummaryByName(Helper.SIMULATION_END_NAME)["summary_value"],
+            end=self.getSummaryByName(Helper.SIMULATION_END_NAME)["summary_value"]+relativedelta(years=1),
             freq=freq_rule
         )
         
@@ -507,7 +507,7 @@ class InputAnalyzer:
         delta = relativedelta(self.getSummaryByName(Helper.SIMULATION_END_NAME)["summary_value"], self.getSummaryByName(Helper.SIMULATION_STARTDATE_NAME)["summary_value"])
         if frequency in Helper.FREQ_MULTIPLIER:
             self.duration_in_years = delta.years
-            self.num_points = delta.years * Helper.FREQ_MULTIPLIER[frequency]
+            self.num_points = (delta.years+1) * Helper.FREQ_MULTIPLIER[frequency]
         else:
             raise Exception(f"Frequency {frequency} not recognized")
         

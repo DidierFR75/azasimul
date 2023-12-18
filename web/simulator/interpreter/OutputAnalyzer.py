@@ -125,7 +125,7 @@ class OutputAnalyzer:
     
     def getNumberOfPoints(self):
         frequency = self.tree.root.analyzer.getSummaryByName(Helper.SIMULATION_FREQUENCY_NAME)["summary_value"].lower() if self.tree.root.analyzer.getSummaryByName(Helper.SIMULATION_FREQUENCY_NAME) is not None else None
-        nb_points = self.getNumberOfYears() * Helper.FREQ_MULTIPLIER[frequency] if frequency in Helper.FREQ_MULTIPLIER else self.getNumberOfYears()
+        nb_points = (self.getNumberOfYears()+1) * Helper.FREQ_MULTIPLIER[frequency] if frequency in Helper.FREQ_MULTIPLIER else self.getNumberOfYears()
         return nb_points
 
     def convertFilter(self, value, unit, filter):
@@ -206,7 +206,7 @@ class OutputAnalyzer:
         new_date = date.replace(month=random_month, day=random_day)
         return new_date
 
-    def insertTransformer(self, cell, for_already_insert):
+    def insertTransformer(self, cell, for_already_insert, values):
         """
         Insert data according to the transformer function and return True if it's done else False
     
@@ -222,17 +222,16 @@ class OutputAnalyzer:
             if l != []:
                 l = l[0]
             
-                start = self.tree.root.analyzer.getSummaryByName("Start")["summary_value"]
-                delta = self.getNumberOfPoints()
-            
                 # Add date if YEAR else add index
-                values = list(map(lambda x: self._randomize_date(start + relativedelta(years=x)) if l == "YEAR" else x+1, [item for item in range(0, delta+1)]))
-                unit = "date" if l == "YEAR" else None
+                unit = "date" if l == "DATEPOINT" else None
 
                 if not for_already_insert:
                     for i in range(1, len(values)):
                         self.ws.insert_rows(cell.row+i)
-            
+
+                if l == "INDEX":
+                    values = range(0, len(values))
+
                 self.ws.cell(row=cell.row, column=cell.column).value = self.formatByUnit(values[0], unit)
                 for i in range(1, len(values)):
                     self.ws.cell(row=cell.row+i, column=cell.column).value = self.formatByUnit(values[i], unit)
@@ -284,13 +283,21 @@ class OutputAnalyzer:
         for merge_cell in self.ws.merged_cells.ranges:
             self.ws.unmerge_cells(str(merge_cell))
 
+        freq_rule = Helper.PD_FREQ_MULTIPLIER[self.tree.root.analyzer.getSimulationFrequency()]
+        timestamps = pd.date_range(
+            start=self.tree.root.analyzer.getSummaryByName(Helper.SIMULATION_STARTDATE_NAME)["summary_value"],
+            end=self.tree.root.analyzer.getSummaryByName(Helper.SIMULATION_END_NAME)["summary_value"]+relativedelta(years=1),
+            freq=freq_rule
+        ).to_list() 
+        date_range = [timestamp.to_pydatetime() for timestamp in timestamps]
+
         for row in self.ws:
             for_already_insert = False
             for cell in row:
                 # add new row if not already did
                 if self.isInterpretable(cell.value):
                     
-                    if self.insertTransformer(cell, for_already_insert):
+                    if self.insertTransformer(cell, for_already_insert, date_range):
                         for_already_insert = True
                         continue
 
