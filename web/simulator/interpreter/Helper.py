@@ -1,44 +1,29 @@
 import os
-from .InputAnalyzer import InputAnalyzer
 import pathlib
 import zipfile
 
-import time
-from functools import wraps
-
-_total_time_call_stack = [0]
-    
-def better_time_tracker(log_fun):
-    def _better_time_tracker(fn):
-        @wraps(fn)
-        def wrapped_fn(*args, **kwargs):
-            global _total_time_call_stack
-            _total_time_call_stack.append(0)
-            
-            start_time = time.time()
-            
-            try:
-                result = fn(*args, **kwargs)
-            finally:
-                elapsed_time = time.time() - start_time
-                inner_total_time = _total_time_call_stack.pop()
-                partial_time = elapsed_time - inner_total_time
-
-                _total_time_call_stack[-1] += elapsed_time
-                
-                # log the result
-                log_fun({
-                    'function_name': fn.__name__,
-                    'total_time': elapsed_time,
-                    'partial_time': partial_time,
-                })
-
-            return result
-
-        return wrapped_fn
-    return _better_time_tracker
-
 class Helper:
+    DELIMITER_SHEET_UNFOLLOW = "_"
+    SIMULATION_FREQUENCY_NAME = 'Simulation Frequency'
+    SIMULATION_STARTDATE_NAME = "Start"
+    SIMULATION_END_NAME = "End"
+    FREQ_MULTIPLIER = {
+        'year': 1,
+        'semester': 2,
+        'quarter': 4,
+        'month': 12,
+        'week': 52,
+        'day': 365
+    }
+    PD_FREQ_MULTIPLIER = {
+        'year': 'A',
+        'semester': '6M',
+        'quarter': '3M',
+        'month': 'M',
+        'week': 'W',
+        'day': 'D'
+    }
+
     @staticmethod
     def rejectXlsFile(fn):
         """
@@ -61,7 +46,7 @@ class Helper:
             >>> print(result)
             True
         """
-        if fn.startswith(".") or fn.startswith(InputAnalyzer.DELIMITER_SHEET_UNFOLLOW) or not fn.endswith('.xlsx'):
+        if fn.startswith(".") or fn.startswith(Helper.DELIMITER_SHEET_UNFOLLOW) or not fn.endswith('.xlsx'):
             return True
         return False
     

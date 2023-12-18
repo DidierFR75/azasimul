@@ -17,6 +17,7 @@ from openpyxl import Workbook, load_workbook
 from anytree import Node, find, findall
 from copy import copy, deepcopy
 from faker import Faker
+from .Helper import Helper
 
 import logging
 import os
@@ -66,7 +67,7 @@ class OutputAnalyzer:
         - `formatByUnit(self, val, unit)`: Formats a value based on its unit.
         - `copyCellStyle(self, cell, new_cell)`: Copies the style of a cell to a new cell.
         - `isInterpretable(self, value)`: Checks if a value is interpretable.
-        - `insertTransformer(self, cell, for_already_insert)`: Inserts data according to a transformer function.
+        - `insertTransformer(self, cell, is_lines_needed_already_insert)`: Inserts data according to a transformer function.
         - `unmergeCell(self, cell)`: Unmerges a cell.
         - `findAndReplaceAnnotateValues(self)`: Finds and replaces annotated values with curve values.
         - `save(self, path)`: Saves the modified workbook to the specified path.
@@ -91,7 +92,7 @@ class OutputAnalyzer:
     }
 
     FUNCTION_TRANSFORMER = {
-        'for': ["INDEX", "YEAR"]
+        'for': ["INDEX", "DATEPOINT"]
     }
 
     FILTERS_DISPATCH = {
@@ -115,6 +116,18 @@ class OutputAnalyzer:
         self.interpreter = interpreter
         self.FILTERS_DISPATCH["category"] = {item: lambda x: x for item in self.tree.root.categories}
 
+    def getNumberOfYears(self):
+        start = self.tree.root.analyzer.getSummaryByName(Helper.SIMULATION_STARTDATE_NAME)["summary_value"]
+        end = self.tree.root.analyzer.getSummaryByName(Helper.SIMULATION_END_NAME)["summary_value"]
+        delta = relativedelta(end, start)
+
+        return delta.years
+    
+    def getNumberOfPoints(self):
+        frequency = self.tree.root.analyzer.getSummaryByName(Helper.SIMULATION_FREQUENCY_NAME)["summary_value"].lower() if self.tree.root.analyzer.getSummaryByName(Helper.SIMULATION_FREQUENCY_NAME) is not None else None
+        nb_points = self.getNumberOfYears() * Helper.FREQ_MULTIPLIER[frequency] if frequency in Helper.FREQ_MULTIPLIER else self.getNumberOfYears()
+        return nb_points
+
     def convertFilter(self, value, unit, filter):
         """
         Convert value by it filter
@@ -130,6 +143,8 @@ class OutputAnalyzer:
         """
         if unit is not None and val != "" and unit != "" and unit in list(self.UNIT_FORMATS.keys()):
             try:
+                if unit != "date":
+                    val = float(val)
                 return deepcopy(self.UNIT_FORMATS[unit](val))
             except Exception as e:
                 raise Exception("Unit problem : ", e, unit, val)
@@ -208,11 +223,10 @@ class OutputAnalyzer:
                 l = l[0]
             
                 start = self.tree.root.analyzer.getSummaryByName("Start")["summary_value"]
-                end = self.tree.root.analyzer.getSummaryByName("End")["summary_value"]
-                delta = relativedelta(end, start)
+                delta = self.getNumberOfPoints()
             
                 # Add date if YEAR else add index
-                values = list(map(lambda x: self._randomize_date(start + relativedelta(years=x)) if l == "YEAR" else x+1, [item for item in range(0, delta.years+1)]))
+                values = list(map(lambda x: self._randomize_date(start + relativedelta(years=x)) if l == "YEAR" else x+1, [item for item in range(0, delta+1)]))
                 unit = "date" if l == "YEAR" else None
 
                 if not for_already_insert:
@@ -264,27 +278,87 @@ class OutputAnalyzer:
         return node
 
     def findAndReplaceAnnotateValues(self):
-        for row in self.ws.iter_rows():
+        """
+        Find and replace all annotate's values by their curve's value
+        """
+        for merge_cell in self.ws.merged_cells.ranges:
+            self.ws.unmerge_cells(str(merge_cell))
+
+        for row in self.ws:
             for_already_insert = False
             for cell in row:
-                if not self.isInterpretable(cell.value):
-                    continue
+                # add new row if not already did
+                if self.isInterpretable(cell.value):
+                    
+                    if self.insertTransformer(cell, for_already_insert):
+                        for_already_insert = True
+                        continue
 
-                if self.insertTransformer(cell, for_already_insert):
-                    for_already_insert = True
-                    continue
+                    matches = re.finditer(self.VAR_EXPRESSION, cell.value)
+                    for match in matches:
+                        node = None
+                        full_match = match.group(0)
+                        inner_content = full_match.strip('[]')  # Remove the brackets
 
-                for full_match in re.findall(self.VAR_EXPRESSION, cell.value):
-                    inner_content = full_match.strip('[]')
-                    variable_part, filter = self.splitVariablePart(inner_content)
-                    node, line_number = self.getNodeAndLineNumber(variable_part)
-                    if node:
-                        val = self.getVariableValue(node, variable_part, line_number)
-                        if self.isForDirective(cell.value) and not for_already_insert:
-                            self.insertRowsForDirective(cell, node, val)
-                            for_already_insert = True
-                        else:
-                            cell.value = val if val is not None else ""
+                        variable_part, filter = self.splitVariablePart(inner_content)
+
+                        line_number = None
+                        if '{' in variable_part:
+                            # Extract the variable name and line number if present
+                            variable_part, line_info = re.match(r'(.*?){(\d+)}', variable_part).groups()
+                            line_number = int(line_info)
+
+                        attr = variable_part.split(".")
+
+                        if len(attr) > 1:                            
+                            node = self.findNode(self.tree.root, attr[0], filter, verbose=False)
+
+                            if node is not None:
+                                data = None
+                                val = {}
+
+                                if node.analyzer.isCurvesSheet():
+                                    data = node.analyzer.getCurveByName(attr[1])
+                                                    
+                                    if data is not None:
+                                        # Interprete FOR directive according to val
+                                        if cell.value.startswith(self.FUNCTION["for"]) and [item for item in self.FUNCTION_TRANSFORMER["for"] if cell.value.endswith(item)] == []:
+
+                                            # if for not previously added and insert necessary row
+                                            if not for_already_insert:
+                                                for_already_insert = True
+                                                for i in range(1, self.getNumberOfPoints()):
+                                                    self.ws.insert_rows(cell.row+i)
+                                            
+                                            # Add values to each cell
+                                            for i in range(0, self.getNumberOfPoints()):
+                                                self.ws.cell(row=cell.row+i, column=cell.column).value = self.formatByUnit(data["values"][i], data["unit"])
+                                                self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
+                                            continue
+                                        
+                                        # Get data value
+                                        try:
+                                            if data["interpolation"] == "CONST":
+                                                val = data["values"][0]
+                                            else:
+                                                val = data["values"][line_number] if line_number is not None and line_number <= len(data["values"]) else data["values"][0]
+                                        except:
+                                            raise Exception("Can't access data values ", data)
+                                            
+                                if node.analyzer.isConstantSheet() and len(attr) > 2:
+                                    data = node.analyzer.getConstantByCategoryAndName(attr[1], attr[2])
+                                    val = data["value"] if data is not None else None                    
+
+                                if node.analyzer.isSummarySheet():
+                                    data = node.analyzer.getSummaryByName(attr[1])
+                                    val = data["summary_value"] if data is not None else None
+
+                                val = self.formatByUnit(val, data["unit"]) if data is not None and "unit" in data else val
+                                
+                                cell.value = val if val != {} and val is not None else ""
+
+        for merge_cell in self.ws.merged_cells.ranges:
+            self.ws.merge_cells(str(merge_cell))
 
     def splitVariablePart(self, inner_content):
         parts = inner_content.split('|')
@@ -292,7 +366,7 @@ class OutputAnalyzer:
         filter = parts[1].lower() if len(parts) > 1 else None
         return variable_part, filter
 
-    def getNodeAndLineNumber(self, variable_part):
+    def getNodeAndLineNumber(self, variable_part, filter):
         line_number = None
         if '{' in variable_part:
             variable_part, line_info = re.match(r'(.*?){(\d+)}', variable_part).groups()
@@ -322,24 +396,6 @@ class OutputAnalyzer:
             return data["summary_value"] if data else None
 
         return None
-
-    def isForDirective(self, cell_value):
-        return cell_value.startswith(self.FUNCTION["for"]) and not any(
-            cell_value.endswith(item) for item in self.FUNCTION_TRANSFORMER["for"]
-        )
-
-    def insertRowsForDirective(self, cell, node, val):
-        start = self.tree.root.analyzer.getSummaryByName("Start")["summary_value"]
-        end = self.tree.root.analyzer.getSummaryByName("End")["summary_value"]
-        delta = relativedelta(end, start)
-        nb_points = delta.years
-
-        for i in range(1, nb_points):
-            self.ws.insert_rows(cell.row + i)
-        for i in range(nb_points):
-            target_cell = self.ws.cell(row=cell.row + i, column=cell.column)
-            target_cell.value = self.formatByUnit(val, node.analyzer.unit if "unit" in node.analyzer else None)
-            self.copyCellStyle(cell, target_cell)
 
     def save(self, path):
         self.wb.save(path)

@@ -12,7 +12,6 @@ from copy import copy, deepcopy
 from faker import Faker
 from .InputAnalyzer import InputAnalyzer
 from .Helper import Helper
-from .Helper import better_time_tracker
 
 import logging
 import os
@@ -111,7 +110,7 @@ class SheetTree:
         for file, wb in all_wks.items():
             result[file] = []
             for sheet_name in wb.sheetnames:
-                if sheet_name.startswith(InputAnalyzer.DELIMITER_SHEET_UNFOLLOW):
+                if sheet_name.startswith(Helper.DELIMITER_SHEET_UNFOLLOW):
                     logger.info(f"Sheet('{sheet_name}') : SKIPPED")
                     continue
                 analyzer = InputAnalyzer(wb[sheet_name], sheet_name, folder + '/' + file, main_summary)
@@ -178,3 +177,42 @@ class SheetTree:
                 i = [i for i, v in enumerate(nodes) if v[1] == element[0] and element[2].category == v[2].category]
                 if i != []:
                     element[2].parent = nodes[i[0]][2]
+
+    def generate_tree_dict(self, node):
+        data_by_category = {}
+
+        def add_data(child_node):
+            category = child_node.category if hasattr(child_node, 'category') and child_node.category is not None else 'root'
+            if not category in data_by_category:
+                data_by_category[category] = {"curves": [], "constants": [], "operations": []}
+
+            if hasattr(child_node, 'analyzer'):
+                # Traiter les courbes
+                curves = getattr(child_node.analyzer, 'curves', [])
+                for curve in curves:
+                    #if curve.get('interpolation') == 'CONST':
+                    #    curve['values'] = [curve['values'][0]]
+                    curve_data = {k: v for k, v in curve.items() if k not in ['column', 'interpolation', "specificiation_name"]}
+                    data_by_category[category]["curves"].append(curve_data)
+
+                # Traiter les constantes
+                constants = getattr(child_node.analyzer, 'constants', {})
+                for const_key, const_values in constants.items():
+                    for const in const_values:
+                        data_by_category[category]["constants"].append(const)
+
+                # Traiter les opérations
+                operations = getattr(child_node.analyzer, 'operations', {})
+                for op_key, op_values in operations.items():
+                    for op in op_values:
+                        data_by_category[category]["operations"].append(op)
+
+            for child in child_node.children:
+                add_data(child)
+
+        add_data(node)
+
+        return data_by_category
+
+
+

@@ -17,7 +17,6 @@ from openpyxl import Workbook, load_workbook
 from anytree import Node, find, findall
 from copy import copy, deepcopy
 from faker import Faker
-from .InputAnalyzer import InputAnalyzer
 from .Helper import Helper
 from .OutputAnalyzer import OutputAnalyzer
 
@@ -62,6 +61,35 @@ class SheetOutputGenerator:
             }
             self.all_sheets[file] = sheetsDic
 
+    def save_data_to_excel(self, data, file_name):
+        wb = Workbook()
+        # Création des feuilles et insertion des données
+        for category, category_data in data.items():
+
+            ws = wb.create_sheet(title=category)
+
+            # Création des colonnes pour chaque type de données
+            columns = {}
+            for item in category_data['curves'] + category_data['constants']:
+
+                item_name = item['curve_name'] if 'curve_name' in item.keys() else item['constant_name']
+                if 'values' in item.keys():
+                    columns[item_name] = item['values']
+                else:
+                    columns[item_name] = [item['value']]
+                                
+            # Ajout des en-têtes de colonnes et des données
+            ws.append(list(columns.keys()))
+            max_length = max(len(col) for col in columns.values())
+
+            for i in range(max_length):
+                row = [columns[name][i] if i < len(columns[name]) else '' for name in columns]
+                ws.append(row)
+
+        # Suppression de la feuille par défaut
+        del wb['Sheet']
+        wb.save(file_name)
+
     def generate(self, folder, zip_fn):
         """
         Generates the final output Excel file by replacing variables in the output sheets with their corresponding values obtained from the interpreter.
@@ -75,6 +103,9 @@ class SheetOutputGenerator:
         """
         from pathlib import Path
         os.makedirs(folder, exist_ok=True)
+
+        data_matrix = self.interpreter.tree.generate_tree_dict(self.interpreter.tree.root)
+        self.save_data_to_excel(data_matrix, f"{folder}/data.xlsx")
 
         count = 0
         for fPath, sheets in self.all_sheets.items():

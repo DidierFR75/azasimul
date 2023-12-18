@@ -13,6 +13,7 @@ from openpyxl import Workbook, load_workbook
 from anytree import Node, find, findall
 from copy import copy, deepcopy
 from faker import Faker
+from .Helper import Helper
 
 import logging
 import os
@@ -84,7 +85,6 @@ class InputAnalyzer:
     - PRODUCT_NAME: The metadata name for the product type
     - PRODUCT_PARENT: The metadata name for the product subtype
     - CATEGORY: The metadata name for the category
-    - DELIMITER_SHEET_UNFOLLOW: The delimiter used to skip sheets
     - CONSTANT_SHEETNAME: The name of the constant sheet
     - SUMMARY_SHEETNAME: The name of the summary sheet
     - OPERATION_SHEETNAME: The name of the operation sheet
@@ -108,31 +108,10 @@ class InputAnalyzer:
     PRODUCT_NAME = "Product-Type"
     PRODUCT_PARENT = "SubType"
     CATEGORY = "Category"
-    DELIMITER_SHEET_UNFOLLOW = "_"
 
     CONSTANT_SHEETNAME = "Constants"
     SUMMARY_SHEETNAME = "Summary" 
     OPERATION_SHEETNAME = "operation"
-
-    SIMULATION_FREQUENCY_NAME = 'Simulation Frequency'
-    SIMULATION_STARTDATE_NAME = "Start"
-    SIMULATION_END_NAME = "End"
-    FREQ_MULTIPLIER = {
-        'year': 1,
-        'semester': 2,
-        'quarter': 4,
-        'month': 12,
-        'week': 52,
-        'day': 365
-    }
-    PD_FREQ_MULTIPLIER = {
-        'year': 'A',
-        'semester': '6M',
-        'quarter': '3M',
-        'month': 'M',
-        'week': 'W',
-        'day': 'D'
-    }
 
     def __init__(self, ws, sheet_name, path, summary=[]) -> None:
         self.evaluator = ExcelCompiler(filename=path)
@@ -209,7 +188,6 @@ class InputAnalyzer:
                 pass
 
         return "Unknown"
-
 
     def evaluate(self, cell):
         """
@@ -446,10 +424,10 @@ class InputAnalyzer:
 
     def _adjust_points_frequency(self, points, values,   frequency):
         # Créer une plage de dates de start_year à end_year à la fréquence spécifiée
-        freq_rule = self.PD_FREQ_MULTIPLIER[frequency]
+        freq_rule = Helper.PD_FREQ_MULTIPLIER[frequency]
         date_range = pd.date_range(
-            start=self.getSummaryByName(self.SIMULATION_STARTDATE_NAME)["summary_value"],
-            end=self.getSummaryByName(self.SIMULATION_END_NAME)["summary_value"],
+            start=self.getSummaryByName(Helper.SIMULATION_STARTDATE_NAME)["summary_value"],
+            end=self.getSummaryByName(Helper.SIMULATION_END_NAME)["summary_value"],
             freq=freq_rule
         )
         
@@ -526,10 +504,10 @@ class InputAnalyzer:
 
     def _define_num_points(self):
         frequency = self.getSimulationFrequency()
-        duration_in_years = int(self.getSummaryByName(self.SIMULATION_END_NAME)["summary_value"].year) - int(self.getSummaryByName(self.SIMULATION_STARTDATE_NAME)["summary_value"].year)
-        if frequency in self.FREQ_MULTIPLIER:
-            self.duration_in_years = duration_in_years
-            self.num_points = duration_in_years * self.FREQ_MULTIPLIER[frequency]
+        delta = relativedelta(self.getSummaryByName(Helper.SIMULATION_END_NAME)["summary_value"], self.getSummaryByName(Helper.SIMULATION_STARTDATE_NAME)["summary_value"])
+        if frequency in Helper.FREQ_MULTIPLIER:
+            self.duration_in_years = delta.years
+            self.num_points = delta.years * Helper.FREQ_MULTIPLIER[frequency]
         else:
             raise Exception(f"Frequency {frequency} not recognized")
         
@@ -538,7 +516,7 @@ class InputAnalyzer:
             Return JSON storage of the input
         """
 
-        if self.sheet_name.startswith(self.DELIMITER_SHEET_UNFOLLOW):
+        if self.sheet_name.startswith(Helper.DELIMITER_SHEET_UNFOLLOW):
             logger.info(f"loadSheet('{self.sheet_name}') : SKIPPED")
             return False
 
@@ -630,7 +608,7 @@ class InputAnalyzer:
         return next(result, None)
 
     def getSimulationFrequency(self):
-        return self.getSummaryByName(self.SIMULATION_FREQUENCY_NAME)["summary_value"].lower() if self.getSummaryByName(self.SIMULATION_FREQUENCY_NAME) is not None else "year"
+        return self.getSummaryByName(Helper.SIMULATION_FREQUENCY_NAME)["summary_value"].lower() if self.getSummaryByName(Helper.SIMULATION_FREQUENCY_NAME) is not None else "year"
     def getOperationByName(self, name):
         result = iter([item for item in self.operations if item["operation_name"].lower() == name.lower()])
         return next(result, None)                        

@@ -240,6 +240,7 @@ def doCompute(request, simul_id, downloadInputs=False):
 
         interpreter = SheetInterpreter(input_path)
         interpreter.evaluate()
+
         # Generate output files
         generator = SheetOutputGenerator(interpreter, MODEL_OUTPUT_PATH)
         generator.analyzeAllOutputSheet()
