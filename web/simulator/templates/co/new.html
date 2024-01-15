@@ -3,15 +3,15 @@
 {% block content %} 
 {% load crispy_forms_tags %}
 <div class="container py-5">
-  <h1 class="text-center">Add Constants or Formulas</h1>
+  <h1 class="text-center">Add {% if category == "input" %}Environmental Conditions or Constants or Formulas{% else %}Report Templates{% endif %}</h1>
   <form method="POST" enctype="multipart/form-data" class="mt-5">
     {% csrf_token %}
       <div class="mb-3">
-        <label>Upload Files</label>
+        <label>Upload a new xlsx file:</label>
         <input name="files" type="file" multiple class="form-control" />
       </div>
 
-    <button class="btn btn-primary" type="submit">Add</button>
+    <button class="btn btn-primary" type="submit">Add new {% if category == "input" %}model{% else %}template{% endif %}</button>
   </form>
 </div>
 {% endblock %}

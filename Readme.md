@@ -134,6 +134,7 @@ There are also operators to display certain types of data or in a certain shape.
 | Keyword Operator | Keyword Operator Description                                                                                                   |
 | -----------------|:------------------------------------------------------------------------------------------------------------------------------:|
 | FOR:             | Insert all data matrix in each row below with FOR:[data], insert loop index with FOR:*INDEX*, insert each DATEPOINT with FOR:*DATEPOINT* |
+| HFOR:            | Insert all data matrix in each colunm next to HFOR:[data], insert loop index with HFOR:*INDEX*, insert each DATEPOINT with HFOR:*DATEPOINT* |
 | CATEGORY:        | Show data which belong to CATEGORY, all category cell values becomes a keyword operator                                        |
 
 #### Accessing Specific Data Rows

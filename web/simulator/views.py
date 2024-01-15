@@ -286,25 +286,29 @@ def listDownloadData(request, id):
 @login_required(login_url="simulator:login")
 def index_co(request, type):
     model = MODEL_INPUT_PATH if type == 'input' else MODEL_OUTPUT_PATH
-
     return render(request, 'co/index.html', {
         "models": [fn for fn in os.listdir(model) if not Helper.rejectXlsFile(fn)],
-        "type": type
+        "type": type,
+        "category": "output" if type != "input" else type
     })
 
 @login_required(login_url="simulator:login")
 def new_co(request, type):
     model = MODEL_INPUT_PATH if type == 'input' else MODEL_OUTPUT_PATH
+    category = "output" if type != "input" else type
     if request.method == "POST":
         # Save file uploaded
         files = request.FILES.getlist('files')
         for f in files:
             default_storage.save(model+str(f), ContentFile(f.read()))
         
-        messages.success(request, "The new operations/constants has been register !")
+        msg = "template" if category == "output" else "model"
+        messages.success(request, f"The new {msg} has been registered")
         return redirect("simulator:index_co", type=type)
         
-    return render(request, 'co/new.html')
+    return render(request, 'co/new.html', {
+        "category": category
+    })
 
 @login_required(login_url="simulator:login")
 def download_co(request, type, name):

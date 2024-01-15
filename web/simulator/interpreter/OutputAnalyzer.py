@@ -89,6 +89,7 @@ class OutputAnalyzer:
     
     FUNCTION = {
         "for": "FOR:",
+        "hfor": "HFOR:"
     }
 
     FUNCTION_TRANSFORMER = {
@@ -237,6 +238,22 @@ class OutputAnalyzer:
                     self.ws.cell(row=cell.row+i, column=cell.column).value = self.formatByUnit(values[i], unit)
                     self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
                 return True
+        elif isinstance(cell.value, str) and cell.value.startswith(self.FUNCTION["hfor"]):
+            l = [item for item in self.FUNCTION_TRANSFORMER["for"] if cell.value.endswith(item)]
+            if l != []:
+                l = l[0]
+            
+                # Add date if YEAR else add index
+                unit = "date" if l == "DATEPOINT" else None
+
+                if l == "INDEX":
+                    values = range(0, len(values))
+
+                self.ws.cell(row=cell.row, column=cell.column).value = self.formatByUnit(values[0], unit)
+                for i in range(1, len(values)):
+                    self.ws.cell(row=cell.row, column=cell.column+i).value = self.formatByUnit(values[i], unit)
+                    self.copyCellStyle(cell, self.ws.cell(row=cell.row, column=cell.column+i))
+                return True
         return False
 
     def unmergeCell(self, cell):
@@ -325,8 +342,7 @@ class OutputAnalyzer:
                                 val = {}
 
                                 if node.analyzer.isCurvesSheet():
-                                    data = node.analyzer.getCurveByName(attr[1])
-                                                    
+                                    data = node.analyzer.getCurveByName(attr[1])                
                                     if data is not None:
                                         # Interprete FOR directive according to val
                                         if cell.value.startswith(self.FUNCTION["for"]) and [item for item in self.FUNCTION_TRANSFORMER["for"] if cell.value.endswith(item)] == []:
@@ -343,6 +359,15 @@ class OutputAnalyzer:
                                                 self.copyCellStyle(cell, self.ws.cell(row=cell.row+i, column=cell.column))
                                             continue
                                         
+                                        # Interprete HFOR directive according to val
+                                        if cell.value.startswith(self.FUNCTION["hfor"]) and [item for item in self.FUNCTION_TRANSFORMER["for"] if cell.value.endswith(item)] == []:
+                                            
+                                            # Add values to each cell
+                                            for i in range(0, self.getNumberOfPoints()):
+                                                self.ws.cell(row=cell.row, column=cell.column+i).value = self.formatByUnit(data["values"][i], data["unit"])
+                                                self.copyCellStyle(cell, self.ws.cell(row=cell.row, column=cell.column+i))
+                                            continue
+
                                         # Get data value
                                         try:
                                             if data["interpolation"] == "CONST":

@@ -1,40 +1,36 @@
+{% if user.is_authenticated %}
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
-    <a class="navbar-brand" href="{% url 'simulator:index' %}">Aza Simulation</a>
+    <a class="navbar-brand" href="{% url 'simulator:index' %}">Aza Simulator</a>
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarText" aria-controls="navbarText" aria-expanded="False" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="navbarText">
       <ul class="navbar-nav ml-auto">
-        {% if user.is_authenticated %}
         <li class="nav-item dropdown">
           <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Simulations</a>
           <div class="dropdown-menu">
-              <a href="{% url 'simulator:index' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> List</a>
-              <a href="{% url 'simulator:new' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Create</a>
+              <a href="{% url 'simulator:index' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> Simulation List</a>
+              <a href="{% url 'simulator:new' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Add new simulation</a>
           </div>
         </li>
         <li class="nav-item dropdown">
           <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Input Models</a>
           <div class="dropdown-menu">
-              <a href="{% url 'simulator:index_co' 'input' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> List</a>
-              <a href="{% url 'simulator:new_co' 'input' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Add</a>
+              <a href="{% url 'simulator:index_co' 'input' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> Model list</a>
+              <a href="{% url 'simulator:new_co' 'input' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Add new model</a>
           </div>
         </li>
         <li class="nav-item dropdown">
           <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">Output Templates</a>
           <div class="dropdown-menu">
-              <a href="{% url 'simulator:index_co' 'output' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> List</a>
-              <a href="{% url 'simulator:new_co' 'output' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Add</a>
+              <a href="{% url 'simulator:index_co' 'output' %}" class="dropdown-item"><i class="fa-solid fa-list"></i> Template list</a>
+              <a href="{% url 'simulator:new_co' 'output' %}" class="dropdown-item"><i class="fa-solid fa-plus"></i> Add new template</a>
           </div>
         </li>
         <li class="nav-item">
           <a class="nav-link" href="{% url 'simulator:logout' %}">Logout</a>
         </li>
-        {% else %}
-        <li class="nav-item">
-          <a class="nav-link" href="/login">Login</a>
-        </li>
-        {% endif %}
       </ul>
     </div>
 </nav>
+{% endif %}

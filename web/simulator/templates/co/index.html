@@ -2,10 +2,10 @@
 
 {% block content %} 
 <div class="container py-5">
-    <h1 class="text-center">Model's List</h1>
+    <h1 class="text-center">{% if category == "input" %}Input Models{% else %}Output Templates{% endif %}</h1>
 
     <div class="d-flex flex-row-reverse mb-3 mt-5">
-        <a href="{% url 'simulator:new_co' type %}" class="btn btn-primary">Upload Files</a>
+        <a href="{% url 'simulator:new_co' type %}" class="btn btn-primary">Upload a {% if category == "input" %}model{% else %}template{% endif %}</a>
     </div>
     {% if models %}
         <div class="table-responsive" style="min-height: 10em;">

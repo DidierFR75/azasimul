@@ -2,7 +2,7 @@
 
 {% block content %} 
 <div class="container py-5">
-    <h1 class="text-center">Simulation's List</h1>
+    <h1 class="text-center">Simulation List</h1>
 
     <div class="d-flex flex-row-reverse mb-3 mt-5">
         <a href="{% url 'simulator:new' %}" class="btn btn-primary">New simulation</a>
@@ -34,11 +34,11 @@
                                 Actions
                                 </a>
                                 <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
-                                    <a class="dropdown-item" href="{% url 'simulator:compute' simulation.id %}"><i class="fa fa-calculator"></i> Produce Simulation Report</a>
-                                    <a class="dropdown-item" href="{% url 'simulator:downloadData' simulation.id %}"><i class="fa-solid fa-database"></i> Download Input Datas</a>
-                                    <a class="dropdown-item" href="{% url 'simulator:listDownloadData' simulation.id %}"><i class="fa-solid fa-bars"></i> List of Input Datas</a>
-                                    <a class="dropdown-item" href="{% url 'simulator:edit' simulation.id %}"><i class="fa-solid fa-pen-to-square"></i> Edit</a>
-                                    <a class="dropdown-item" href="{% url 'simulator:delete' simulation.id %}"><i class="fa-solid fa-trash"></i> Delete</a>
+                                    <a class="dropdown-item" href="{% url 'simulator:compute' simulation.id %}"><i class="fa fa-calculator"></i> Download simulation report</a>
+                                    <a class="dropdown-item" href="{% url 'simulator:downloadData' simulation.id %}"><i class="fa-solid fa-database"></i> Download all models</a>
+                                    <a class="dropdown-item" href="{% url 'simulator:listDownloadData' simulation.id %}"><i class="fa-solid fa-bars"></i> Select models to download</a>
+                                    <a class="dropdown-item" href="{% url 'simulator:edit' simulation.id %}"><i class="fa-solid fa-pen-to-square"></i> Edit simulation paramaters</a>
+                                    <a class="dropdown-item" href="{% url 'simulator:delete' simulation.id %}"><i class="fa-solid fa-trash"></i> Delete simulation</a>
                                 </div>
                             </div>
                         </td>
